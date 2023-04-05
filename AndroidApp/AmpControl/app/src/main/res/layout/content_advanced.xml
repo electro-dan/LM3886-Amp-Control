@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="0dp"
+    android:paddingLeft="0dp"
+    android:paddingRight="0dp"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+
+    <CheckBox
+        android:id="@+id/check51Mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@+id/textViewSubAdj"
+        android:checked="true"
+        android:text="5.1 Mode" />
+
+    <CheckBox
+        android:id="@+id/checkHafler"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:checked="true"
+        android:text="Hafler Surround" />
+
+    <CheckBox
+        android:id="@+id/checkTrigger1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_below="@+id/check51Mode"
+        android:checked="false"
+        android:text="Trigger 1" />
+
+    <CheckBox
+        android:id="@+id/checkTrigger2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@+id/check51Mode"
+        android:layout_below="@+id/check51Mode"
+        android:checked="false"
+        android:text="Trigger 2" />
+
+    <TextView
+        android:id="@+id/textViewFrontBal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_below="@+id/checkTrigger2"
+        android:layout_marginTop="20dp"
+        android:text="Front Balance"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <TextView
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0dB"
+        android:id="@+id/txtFrontBal"
+        android:layout_below="@+id/textViewFrontBal"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBarFrontBal"
+        android:max="63"
+        android:progress="31"
+        android:indeterminate="false"
+        android:layout_alignTop="@+id/txtFrontBal"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_toRightOf="@+id/txtFrontBal"
+        android:layout_toEndOf="@+id/txtFrontBal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Rear Adjust"
+        android:id="@+id/textViewRearAdj"
+        android:layout_below="@+id/txtFrontBal"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="20dp" />
+
+    <TextView
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0dB"
+        android:id="@+id/txtRearAdj"
+        android:layout_below="@+id/textViewRearAdj"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBarRearAdj"
+        android:max="63"
+        android:progress="31"
+        android:indeterminate="false"
+        android:layout_alignTop="@+id/txtRearAdj"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_toRightOf="@+id/txtRearAdj"
+        android:layout_toEndOf="@+id/txtRearAdj" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Rear Balance"
+        android:id="@+id/textViewRearBal"
+        android:layout_below="@+id/txtRearAdj"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="20dp" />
+
+    <TextView
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0dB"
+        android:id="@+id/txtRearBal"
+        android:layout_below="@+id/textViewRearBal"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBarRearBal"
+        android:max="63"
+        android:progress="31"
+        android:indeterminate="false"
+        android:layout_alignTop="@+id/txtRearBal"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_toRightOf="@+id/txtRearBal"
+        android:layout_toEndOf="@+id/txtRearBal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Centre Adjust"
+        android:id="@+id/textViewCentreAdj"
+        android:layout_below="@+id/txtRearBal"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="20dp" />
+
+    <TextView
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0dB"
+        android:id="@+id/txtCentreAdj"
+        android:layout_below="@+id/textViewCentreAdj"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBarCentreAdj"
+        android:max="63"
+        android:progress="31"
+        android:indeterminate="false"
+        android:layout_alignTop="@+id/txtCentreAdj"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_toRightOf="@+id/txtCentreAdj"
+        android:layout_toEndOf="@+id/txtCentreAdj" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Subwoofer Adjust"
+        android:id="@+id/textViewSubAdj"
+        android:layout_below="@+id/txtCentreAdj"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="20dp" />
+
+    <TextView
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0dB"
+        android:id="@+id/txtSubAdj"
+        android:layout_below="@+id/textViewSubAdj"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true" />
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBarSubAdj"
+        android:max="63"
+        android:progress="31"
+        android:indeterminate="false"
+        android:layout_alignTop="@+id/txtSubAdj"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_toRightOf="@+id/txtSubAdj"
+        android:layout_toEndOf="@+id/txtSubAdj"
+        android:layout_marginBottom="60dp"/>
+
+
+</RelativeLayout>

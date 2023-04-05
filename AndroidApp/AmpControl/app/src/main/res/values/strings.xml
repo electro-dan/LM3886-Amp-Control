@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Amp Control</string>
+    <string name="action_settings">Settings</string>
+    <string name="msgGetStatus">G</string>
+    <string name="msgPowerSend">P</string>
+    <string name="msgMuteSend">Q</string>
+    <string name="msgVolumeSend">V</string>
+    <string name="msgInputSend">I</string>
+    <string name="msgFrontBalanceSend">F</string>
+    <string name="msgRearBalanceSend">R</string>
+    <string name="msgRearAdjustSend">r</string>
+    <string name="msgCenAdjustSend">C</string>
+    <string name="msgSubAdjustSend">S</string>
+    <string name="msgSurroundSend">M</string>
+    <string name="msgExtSurroundSend">E</string>
+    <string name="msgTriggerSend">T</string>
+
+    <string name="no_bt_device">Bluetooth is not available.</string>
+    <string name="bt_not_enabled_leaving">Bluetooth was not enabled.</string>
+    <string name="macFailed">Error retrieving MAC address.</string>
+    <string name="pleaseWait">Please Wait</string>
+    <string name="makingConnectionString">Connecting to bluetooth device...</string>
+    <string name="failedToConnect">Failed to connect to device.</string>
+
+</resources>

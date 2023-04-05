@@ -1,0 +1,61 @@
+v1.0 5th Mar 2014
+- Release version, live and Running
+- Untested bluetooth
+
+v1.1 2nd May 2016, 7th Aug 2016
+- Save power by switching relays off after power off
+- Renames
+- RS232 receive nibble fix
+- RS232 power on fix
+
+v2.0 3rd May 2017
+For new PIC and circuit boards
+- Revision of pins
+- TODO: Interrupt priority
+  - high priority for DC and PWR fail
+  - low priority for all others (disable during power on sequence)
+- TODO: Added speaker protection interrupt
+  - Interrupt routine
+  - Fault to LED display
+- TODO: Bluetooth AT commands
+- TODO: PIC reduced power consumption
+   - INTOSC used to set low speed clock
+     - IRCF2:IRCF0 : 110 = 4 MHz
+   - RC_RUN mode - SCS1:SCS0 bits set to ‘10’
+   - PRI_RUN - SCS1:SCS0 bits set to ‘00’
+- TODO: Adjust relay pins
+
+v2.0 2nd Apr 2018
+- Added dedicated mute feature
+
+v2.1 28th Jun 2018
+- Changed configuration to reduce power consumption - disabled PLL, reduced clock to 10MHz and adjusted timers, baud
+- Added trigger support
+
+v2.2 8th Jul 2018
+- Tweaks to volume adjust increments by IR, LED delay and relay at power on
+
+v2.3 9th Sep 2018
+- Adjusted MAX7219 LED char delay and added extra clear at power off to clear display to try to improve LED reliability
+v2.3.1 13th Sep 2018 [not programmed]
+- Adjusted MAX7219 LED char delay further
+v2.3.2 22nd/24th Sep 2018
+- Added MAX7219 LED char init test
+- Default 1 for trigger 1
+v2.3.4 15th Oct 2018 [live]
+- Adjusted timings and code for MAX7219
+
+v2.4 18th Mar 2019
+- Added delay before input relays/triggers close
+- Renamed inputs
+
+Fix list:
+x Not reponding to DC fail
+x Not working in low power mode
+x RS232 ignoring second character after command (e.g. V99 goes V90)
+x Switch to timer based RC2 IR receive
+x EEPROM not saving
+x Input relays click after power on
+x Sometimes second display does not initiate
+x Add triggers x2
+x Rear balance/level variance at power on

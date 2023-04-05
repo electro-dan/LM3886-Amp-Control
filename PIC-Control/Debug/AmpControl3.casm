@@ -1,0 +1,5778 @@
+;/////////////////////////////////////////////////////////////////////////////////
+;// Code Generator: BoostC Compiler - http://www.sourceboost.com
+;// Version       : 8.01
+;// License Type  : Pro License
+;// Limitations   : PIC18 max code size:Unlimited, max RAM banks:Unlimited
+;/////////////////////////////////////////////////////////////////////////////////
+
+#ifndef _AMPCONTROL3_H_
+#define _AMPCONTROL3_H_
+
+#include <system.h>
+#include <stdio.h>
+
+// Tasks
+char cTask = 0;
+130A  0100      	MOVLB 0x00
+130C  6B72      	CLRF gbl_cTask, 1
+
+#define TASK_INT_EXT0		0
+//#define TASK_RS232			1
+#define TASK_INT_TX			2
+#define TASK_INT_EXT1		3
+#define TASK_INT_EXT2		4
+#define TASK_TIMER1_MUTE	5
+#define TASK_TIMER1_FUNC    6
+#define TASK_TIMER1			7
+
+// LED and Relay outputs
+#define POWEROUT (porta.0) // Output for the main power relays
+#define MUTEOUT (porta.1) // Output for the unmute relay
+#define IR_LED (porta.2) // Red IR LED pin
+#define RED (porta.3) // Red LED pin
+#define GREEN (porta.4) // Green LED pin
+#define BLUE (porta.5) // Blue LED pin
+
+// Pins for monitoring
+#define PWR_FAIL (portb.0) // AC detection for when amp is unplugged - if this is high, then AC was removed
+#define IR_PIN (portb.1) // IR detector input pin
+#define DC_FAIL (portb.2) // Amp DC detection - if this is low, then in a fault condition!
+#define EXT_POWER (portd.6) // Externally triggered power - if this is low, then a device connected by USB is on
+
+// MAX7219 pins
+#define LEDDATA (portb.3)
+#define LEDCLOCK (portb.4)
+#define LEDLATCH (portb.5)
+#define LEDDISPON (portd.7) // v3.0 added this to control power Vss to MAX7219 - low = display on
+
+// PGA2310 pins
+#define VOLDATA (portc.0)
+#define VOLCLOCK (portc.1)
+#define VOLLATCH (portc.2)
+
+// 74HCT595 pins
+#define RELAYDATA (porte.0)
+#define RELAYCLOCK (porte.1)
+#define RELAYLATCH (porte.2)
+
+// MAX7219 bit-bang delay
+#define LEDDELAYUS 40
+
+// Timer2 preloads for IR timing
+// 21 for 208us on 10MHz, 1:8 postscaler
+// 34 for 16MHz, 50 for 24MHz
+#define IR_PR2_200US 21
+// 92 for 872us on 10MHz, 1:8 postscaler
+// 148 for 16MHz, 222 for 24MHz
+#define IR_PR2_890US 92
+
+// For setting TMR1 to 3072 (tmr1h=12) - so it interrupts after roughly 200ms at 10Mhz, 1:8 prescaler
+#define TMR1H_SET 12
+#define TMR1_1SEC 5
+
+#define RX_BUFFER_SIZE	30
+
+char iVolume = 0; // Overall system volume 0-255
+130E  6B73      	CLRF gbl_iVolume, 1
+
+char iMute = 0; // 1 if muted
+1310  6B74      	CLRF gbl_iMute, 1
+
+char iMuteHeld = 0;
+1312  6B75      	CLRF gbl_iMuteHeld, 1
+
+char iMuteWasPressed = 0;
+1314  6B76      	CLRF gbl_iMuteWasPressed, 1
+
+signed char iFrontBalance = 0; // signed offset to front speakers left/right balance
+1316  6B77      	CLRF gbl_iFrontBalance, 1
+
+signed char iRearBalance = 0; // signed offset to rear speakers left/right balance
+1318  6B78      	CLRF gbl_iRearBalance, 1
+
+signed char iRearAdjust = 0; // signed offset to rear speakers volume
+131A  6B79      	CLRF gbl_iRearAdjust, 1
+
+signed char iCentreAdjust = 0; // signed offset to centre speaker volume
+131C  6B7A      	CLRF gbl_iCentreAdjust, 1
+
+signed char iSubAdjust = 0; // signed offset to subwoofer volume
+131E  6B7B      	CLRF gbl_iSubAdjust, 1
+
+
+char iPower = 0; // 1 if powered on
+1320  6B7C      	CLRF gbl_iPower, 1
+
+char iPowerExternal = 0; // 1 if powered on by external USB trigger
+1322  6B7D      	CLRF gbl_iPowerExternal, 1
+
+char iActiveInput = 0; // The active input 0 to 3
+1324  6B7E      	CLRF gbl_iActiveInput, 1
+
+char iTrigger = 1; // The active 12V trigger outputs - by default, trigger 1 on, trigger 2 off
+1326  0E01      	MOVLW 0x01
+1328  6F7F      	MOVWF gbl_iTrigger, 1
+
+char iSurroundMode = 1; // Surround sound mode. 0 = stereo, 1 = all 6 channels
+132A  0E01      	MOVLW 0x01
+132C  6F80      	MOVWF gbl_iSurroundMode, 1
+
+char iExtSurroundMode = 1; // Surround sound decoding. 0 = internal hafler, 1 = external decoded via 5.1 input
+132E  0E01      	MOVLW 0x01
+1330  6F81      	MOVWF gbl_iExtSurroundMode, 1
+
+char iFunctionMode = 0;
+1332  6B82      	CLRF gbl_iFunctionMode, 1
+
+
+// Buffer and index pointer for RS232 receiving
+//char iRS232Index;
+//char rs232Buffer[RX_BUFFER_SIZE];
+
+// Timer 1 overflow counting
+char iTimer1Count = 0;
+1334  6B83      	CLRF gbl_iTimer1Count, 1
+
+char iTimer1SecCounts = 0;
+1336  6B84      	CLRF gbl_iTimer1SecCounts, 1
+
+char iTimer1OffCount = 10;
+1338  0E0A      	MOVLW 0x0A
+133A  6F85      	MOVWF gbl_iTimer1OffCount, 1
+
+
+// RC5 message time (~114ms) multiple
+#define MUTE_HOLD_TIME 9
+
+// Original table
+/***************************************************************************************
+
+Characters:
+    7 6 5 4  3 2 1 0
+    p a b c  d e f g
+  = 0 0 0 0  0 0 0 0  00
+0 = 0 1 1 1  1 1 1 0  7E
+1 = 0 0 1 1  0 0 0 0  30
+2 = 0 1 1 0  1 1 0 1  6D
+3 = 0 1 1 1  1 0 0 1  79
+4 = 0 0 1 1  0 0 1 1  33
+5 = 0 1 0 1  1 0 1 1  5B
+6 = 0 1 0 1  1 1 1 1  5F
+7 = 0 1 1 1  0 0 0 0  70
+8 = 0 1 1 1  1 1 1 1  7F
+9 = 0 1 1 1  1 0 1 1  7B
+- = 0 0 0 0  0 0 0 1  01
+
+A = 0 1 1 1  0 1 1 1  77
+b = 0 0 0 1  1 1 1 1  1F
+c = 0 0 0 0  1 1 0 1  0D
+d = 0 0 1 1  1 1 0 1  3D
+E = 0 1 0 0  1 1 1 1  4F
+F = 0 1 0 0  0 1 1 1  47
+g = 0 1 1 1  1 0 1 1  7B
+h = 0 0 0 1  0 1 1 1  17
+H = 0 0 1 1  0 1 1 1  37
+i = 0 0 0 1  0 0 0 0  10
+L = 0 0 0 0  1 1 1 0  0E
+o = 0 0 0 1  1 1 0 1  1D
+P = 0 1 1 0  0 1 1 1  67
+r = 0 0 0 0  0 1 0 1  05
+S = 0 1 0 1  1 0 1 1  5B
+T = 0 1 0 0  0 1 1 0  46
+t = 0 0 0 0  1 1 1 1  0F
+u = 0 0 0 1  1 1 0 0  1C
+y = 0 0 1 1  0 0 1 1  33
+
+**************************************************************************************/
+
+// This table, taken from http://www.ccsinfo.com/forum/viewtopic.php?p=57034 is ideal for writing the converted character out
+// However as the dot is the MSB for the MAX7219 when writing, bit shift 1 to the right
+// Converted using spreadsheet formula ="0x"&RIGHT("0"&DEC2HEX(BITRSHIFT(HEX2DEC(RIGHT(A1,2)),1)),2)
+// Modification - capital T output differently
+const char displayASCIItoSeg[] = {// ASCII to SEVEN-SEGMENT conversion table
+    0x00,       // ' ', 
+133C  6A05      	CLRF gbl_displayASCIItoSeg
+
+    0x00,       // '!', No seven-segment conversion for exclamation point
+133E  6A06      	CLRF gbl_displayASCIItoSeg+D'1'
+
+    0x22,       // '"', Double quote
+1340  0E22      	MOVLW 0x22
+1342  6E07      	MOVWF gbl_displayASCIItoSeg+D'2'
+
+    0x00,       // '#', Pound sign
+1344  6A08      	CLRF gbl_displayASCIItoSeg+D'3'
+
+    0x00,       // '$', No seven-segment conversion for dollar sign
+1346  6A09      	CLRF gbl_displayASCIItoSeg+D'4'
+
+    0x00,       // '%', No seven-segment conversion for percent sign
+1348  6A0A      	CLRF gbl_displayASCIItoSeg+D'5'
+
+    0x00,       // '&', No seven-segment conversion for ampersand
+134A  6A0B      	CLRF gbl_displayASCIItoSeg+D'6'
+
+    0x20,       // ''', Single quote
+134C  0E20      	MOVLW 0x20
+134E  6E0C      	MOVWF gbl_displayASCIItoSeg+D'7'
+
+    0x4E,       // '(', Same as '['
+1350  0E4E      	MOVLW 0x4E
+1352  6E0D      	MOVWF gbl_displayASCIItoSeg+D'8'
+
+    0x78,       // ')', Same as ']'
+1354  0E78      	MOVLW 0x78
+1356  6E0E      	MOVWF gbl_displayASCIItoSeg+D'9'
+
+    0x00,       // '*', No seven-segment conversion for asterix
+1358  6A0F      	CLRF gbl_displayASCIItoSeg+D'10'
+
+    0x00,       // '+', No seven-segment conversion for plus sign
+135A  6A10      	CLRF gbl_displayASCIItoSeg+D'11'
+
+    0x00,       // ', '
+135C  6A11      	CLRF gbl_displayASCIItoSeg+D'12'
+
+    0x01,       // '-', Minus sign
+135E  0E01      	MOVLW 0x01
+1360  6E12      	MOVWF gbl_displayASCIItoSeg+D'13'
+
+    0x00,       // '.', No seven-segment conversion for period
+1362  6A13      	CLRF gbl_displayASCIItoSeg+D'14'
+
+    0x00,       // '/', No seven-segment conversion for slash
+1364  6A14      	CLRF gbl_displayASCIItoSeg+D'15'
+
+    0x7E,       // '0', 
+1366  0E7E      	MOVLW 0x7E
+1368  6E15      	MOVWF gbl_displayASCIItoSeg+D'16'
+
+    0x30,       // '1', 
+136A  0E30      	MOVLW 0x30
+136C  6E16      	MOVWF gbl_displayASCIItoSeg+D'17'
+
+    0x6D,       // '2', 
+136E  0E6D      	MOVLW 0x6D
+1370  6E17      	MOVWF gbl_displayASCIItoSeg+D'18'
+
+    0x79,       // '3', 
+1372  0E79      	MOVLW 0x79
+1374  6E18      	MOVWF gbl_displayASCIItoSeg+D'19'
+
+    0x33,       // '4', 
+1376  0E33      	MOVLW 0x33
+1378  6E19      	MOVWF gbl_displayASCIItoSeg+D'20'
+
+    0x5B,       // '5', 
+137A  0E5B      	MOVLW 0x5B
+137C  6E1A      	MOVWF gbl_displayASCIItoSeg+D'21'
+
+    0x5F,       // '6', 
+137E  0E5F      	MOVLW 0x5F
+1380  6E1B      	MOVWF gbl_displayASCIItoSeg+D'22'
+
+    0x70,       // '7', 
+1382  0E70      	MOVLW 0x70
+1384  6E1C      	MOVWF gbl_displayASCIItoSeg+D'23'
+
+    0x7F,       // '8', 
+1386  0E7F      	MOVLW 0x7F
+1388  6E1D      	MOVWF gbl_displayASCIItoSeg+D'24'
+
+    0x7B,       // '9', 
+138A  0E7B      	MOVLW 0x7B
+138C  6E1E      	MOVWF gbl_displayASCIItoSeg+D'25'
+
+    0x00,       // ':', No seven-segment conversion for colon
+138E  6A1F      	CLRF gbl_displayASCIItoSeg+D'26'
+
+    0x00,       // ';', No seven-segment conversion for semi-colon
+1390  6A20      	CLRF gbl_displayASCIItoSeg+D'27'
+
+    0x00,       // '<', No seven-segment conversion for less-than sign
+1392  6A21      	CLRF gbl_displayASCIItoSeg+D'28'
+
+    0x09,       // '=', Equal sign
+1394  0E09      	MOVLW 0x09
+1396  6E22      	MOVWF gbl_displayASCIItoSeg+D'29'
+
+    0x00,       // '>', No seven-segment conversion for greater-than sign
+1398  6A23      	CLRF gbl_displayASCIItoSeg+D'30'
+
+    0x65,       //'?', Question mark
+139A  0E65      	MOVLW 0x65
+139C  6E24      	MOVWF gbl_displayASCIItoSeg+D'31'
+
+    0x00,       // '@', No seven-segment conversion for commercial at-sign
+139E  6A25      	CLRF gbl_displayASCIItoSeg+D'32'
+
+    0x77,       // 'A', 
+13A0  0E77      	MOVLW 0x77
+13A2  6E26      	MOVWF gbl_displayASCIItoSeg+D'33'
+
+    0x1F,       // 'B', Actually displayed as 'b'
+13A4  0E1F      	MOVLW 0x1F
+13A6  6E27      	MOVWF gbl_displayASCIItoSeg+D'34'
+
+    0x4E,       // 'C', 
+13A8  0E4E      	MOVLW 0x4E
+13AA  6E28      	MOVWF gbl_displayASCIItoSeg+D'35'
+
+    0x3D,       // 'D', Actually displayed as 'd'
+13AC  0E3D      	MOVLW 0x3D
+13AE  6E29      	MOVWF gbl_displayASCIItoSeg+D'36'
+
+    0x4F,       // 'E', 
+13B0  0E4F      	MOVLW 0x4F
+13B2  6E2A      	MOVWF gbl_displayASCIItoSeg+D'37'
+
+    0x47,       // 'F', 
+13B4  0E47      	MOVLW 0x47
+13B6  6E2B      	MOVWF gbl_displayASCIItoSeg+D'38'
+
+    0x5E,       // 'G', Actually displayed as 'g'
+13B8  0E5E      	MOVLW 0x5E
+13BA  6E2C      	MOVWF gbl_displayASCIItoSeg+D'39'
+
+    0x37,       // 'H', 
+13BC  0E37      	MOVLW 0x37
+13BE  6E2D      	MOVWF gbl_displayASCIItoSeg+D'40'
+
+    0x30,       // 'I', Same as '1'
+13C0  0E30      	MOVLW 0x30
+13C2  6E2E      	MOVWF gbl_displayASCIItoSeg+D'41'
+
+    0x3C,       // 'J', 
+13C4  0E3C      	MOVLW 0x3C
+13C6  6E2F      	MOVWF gbl_displayASCIItoSeg+D'42'
+
+    0x00,       // 'K', No seven-segment conversion
+13C8  6A30      	CLRF gbl_displayASCIItoSeg+D'43'
+
+    0x0E,       // 'L', 
+13CA  0E0E      	MOVLW 0x0E
+13CC  6E31      	MOVWF gbl_displayASCIItoSeg+D'44'
+
+    0x00,       // 'M', No seven-segment conversion
+13CE  6A32      	CLRF gbl_displayASCIItoSeg+D'45'
+
+    0x15,       // 'N', Actually displayed as 'n'
+13D0  0E15      	MOVLW 0x15
+13D2  6E33      	MOVWF gbl_displayASCIItoSeg+D'46'
+
+    0x7E,       // 'O', Same as '0'
+13D4  0E7E      	MOVLW 0x7E
+13D6  6E34      	MOVWF gbl_displayASCIItoSeg+D'47'
+
+    0x67,       // 'P', 
+13D8  0E67      	MOVLW 0x67
+13DA  6E35      	MOVWF gbl_displayASCIItoSeg+D'48'
+
+    0x00,       // 'Q', No seven-segment conversion
+13DC  6A36      	CLRF gbl_displayASCIItoSeg+D'49'
+
+    0x05,       // 'R', Actually displayed as 'r'
+13DE  0E05      	MOVLW 0x05
+13E0  6E37      	MOVWF gbl_displayASCIItoSeg+D'50'
+
+    0x5B,       // 'S', Same as '5'
+13E2  0E5B      	MOVLW 0x5B
+13E4  6E38      	MOVWF gbl_displayASCIItoSeg+D'51'
+
+    0x70,       // 'T', Displayed as 7
+13E6  0E70      	MOVLW 0x70
+13E8  6E39      	MOVWF gbl_displayASCIItoSeg+D'52'
+
+    0x3E,       // 'U', 
+13EA  0E3E      	MOVLW 0x3E
+13EC  6E3A      	MOVWF gbl_displayASCIItoSeg+D'53'
+
+    0x00,       // 'V', No seven-segment conversion
+13EE  6A3B      	CLRF gbl_displayASCIItoSeg+D'54'
+
+    0x00,       // 'W', No seven-segment conversion
+13F0  6A3C      	CLRF gbl_displayASCIItoSeg+D'55'
+
+    0x00,       // 'X', No seven-segment conversion
+13F2  6A3D      	CLRF gbl_displayASCIItoSeg+D'56'
+
+    0x3B,       // 'Y', 
+13F4  0E3B      	MOVLW 0x3B
+13F6  6E3E      	MOVWF gbl_displayASCIItoSeg+D'57'
+
+    0x00,       // 'Z', No seven-segment conversion
+13F8  6A3F      	CLRF gbl_displayASCIItoSeg+D'58'
+
+    0x00,       // '[', 
+13FA  6A40      	CLRF gbl_displayASCIItoSeg+D'59'
+
+    0x00,       // '\', No seven-segment conversion
+13FC  6A41      	CLRF gbl_displayASCIItoSeg+D'60'
+
+    0x00,       // ']', 
+13FE  6A42      	CLRF gbl_displayASCIItoSeg+D'61'
+
+    0x00,       // '^', No seven-segment conversion
+1400  6A43      	CLRF gbl_displayASCIItoSeg+D'62'
+
+    0x00,       // '_', Underscore
+1402  6A44      	CLRF gbl_displayASCIItoSeg+D'63'
+
+    0x00,       // '`', No seven-segment conversion for reverse quote
+1404  6A45      	CLRF gbl_displayASCIItoSeg+D'64'
+
+    0x7D,       // 'a', 
+1406  0E7D      	MOVLW 0x7D
+1408  6E46      	MOVWF gbl_displayASCIItoSeg+D'65'
+
+    0x1F,       // 'b', 
+140A  0E1F      	MOVLW 0x1F
+140C  6E47      	MOVWF gbl_displayASCIItoSeg+D'66'
+
+    0x0D,       // 'c', 
+140E  0E0D      	MOVLW 0x0D
+1410  6E48      	MOVWF gbl_displayASCIItoSeg+D'67'
+
+    0x3D,       // 'd', 
+1412  0E3D      	MOVLW 0x3D
+1414  6E49      	MOVWF gbl_displayASCIItoSeg+D'68'
+
+    0x6F,       // 'e', 
+1416  0E6F      	MOVLW 0x6F
+1418  6E4A      	MOVWF gbl_displayASCIItoSeg+D'69'
+
+    0x47,       // 'f', Actually displayed as 'F'
+141A  0E47      	MOVLW 0x47
+141C  6E4B      	MOVWF gbl_displayASCIItoSeg+D'70'
+
+    0x5E,       // 'g', 
+141E  0E5E      	MOVLW 0x5E
+1420  6E4C      	MOVWF gbl_displayASCIItoSeg+D'71'
+
+    0x17,       // 'h', 
+1422  0E17      	MOVLW 0x17
+1424  6E4D      	MOVWF gbl_displayASCIItoSeg+D'72'
+
+    0x10,       // 'i', 
+1426  0E10      	MOVLW 0x10
+1428  6E4E      	MOVWF gbl_displayASCIItoSeg+D'73'
+
+    0x3C,       // 'j', Actually displayed as 'J'
+142A  0E3C      	MOVLW 0x3C
+142C  6E4F      	MOVWF gbl_displayASCIItoSeg+D'74'
+
+    0x00,       // 'k', No seven-segment conversion
+142E  6A50      	CLRF gbl_displayASCIItoSeg+D'75'
+
+    0x0E,       // 'l', Actually displayed as 'L'
+1430  0E0E      	MOVLW 0x0E
+1432  6E51      	MOVWF gbl_displayASCIItoSeg+D'76'
+
+    0x00,       // 'm', No seven-segment conversion
+1434  6A52      	CLRF gbl_displayASCIItoSeg+D'77'
+
+    0x15,       // 'n', 
+1436  0E15      	MOVLW 0x15
+1438  6E53      	MOVWF gbl_displayASCIItoSeg+D'78'
+
+    0x1D,       // 'o', 
+143A  0E1D      	MOVLW 0x1D
+143C  6E54      	MOVWF gbl_displayASCIItoSeg+D'79'
+
+    0x67,       // 'p', Actually displayed as 'P'
+143E  0E67      	MOVLW 0x67
+1440  6E55      	MOVWF gbl_displayASCIItoSeg+D'80'
+
+    0x00,       // 'q', No seven-segment conversion
+1442  6A56      	CLRF gbl_displayASCIItoSeg+D'81'
+
+    0x05,       // 'r', 
+1444  0E05      	MOVLW 0x05
+1446  6E57      	MOVWF gbl_displayASCIItoSeg+D'82'
+
+    0x5B,       // 's', Actually displayed as 'S'
+1448  0E5B      	MOVLW 0x5B
+144A  6E58      	MOVWF gbl_displayASCIItoSeg+D'83'
+
+    0x0F,       // 't', 
+144C  0E0F      	MOVLW 0x0F
+144E  6E59      	MOVWF gbl_displayASCIItoSeg+D'84'
+
+    0x1C,       // 'u', 
+1450  0E1C      	MOVLW 0x1C
+1452  6E5A      	MOVWF gbl_displayASCIItoSeg+D'85'
+
+    0x00,       // 'v', No seven-segment conversion
+1454  6A5B      	CLRF gbl_displayASCIItoSeg+D'86'
+
+    0x00,       // 'w', No seven-segment conversion
+1456  6A5C      	CLRF gbl_displayASCIItoSeg+D'87'
+
+    0x00,       // 'x', No seven-segment conversion
+1458  6A5D      	CLRF gbl_displayASCIItoSeg+D'88'
+
+    0x3B,       // 'y', Actually displayed as 'Y'
+145A  0E3B      	MOVLW 0x3B
+145C  6E5E      	MOVWF gbl_displayASCIItoSeg+D'89'
+
+    0x00        // 'z', No seven-segment conversion
+145E  6A5F      	CLRF gbl_displayASCIItoSeg+D'90'
+
+}; 
+
+// Functions
+//void rs232SendByte(char c);
+//void rs232SendNibble(char c);
+//void rs232Print(unsigned char *s);
+//void bluetoothSetup();
+
+void timer1Reset();
+
+void saveData();
+void eepromWrite(char address, char data);
+void readData();
+char eepromRead(char address);
+
+char ledCurrentLine = 1;
+1460  0E01      	MOVLW 0x01
+1462  6F86      	MOVWF gbl_ledCurrentLine, 1
+
+char ledCurrentCol = 0;
+1464  6B87      	CLRF gbl_ledCurrentCol, 1
+
+void ledPrint(char iLine, unsigned char *s);
+void ledChar(char iChar, char iHasDot);
+void ledTest();
+void ledSetup();
+void ledOn();
+void ledOff();
+void ledClear();
+void ledWrite();
+void ledSendChar(char iData);
+void ledLatchUp();
+void ledLatchDown();
+
+void printMute();
+void doPower();
+void doMute();
+void showVolume();
+void showInput();
+void showFault();
+
+void writeRelay();
+void doInputUp();
+void doInputDown();
+
+void writeVolumes();
+char getAdjustedVolume(signed char iVolAdj);
+
+void rc5HalfPulse();
+void rc5QtrPulse();
+
+//void sendRS232Status();
+
+char getVolume();
+void setVolume(char iVol);
+char getFrontBalance();
+char getRearBalance();
+char getRearAdjust();
+char getCentreAdjust();
+char getSubAdjust();
+char getSurroundMode();
+char getExtSurroundMode();
+char getActiveInput();
+
+void resetTimer1Count();
+
+void onInterruptEXT0();
+void onInterruptEXT2();
+void functionDisplay();
+void functionValueDisplay(char iValue);
+char functionValueRaise(char iValue);
+char functionValueLower(char iValue);
+void functionRaise();
+void functionLower();
+void functionUp();
+void functionDown();
+void rc5Process();
+
+// For IR
+char intfCounter = 0;
+1466  6B88      	CLRF gbl_intfCounter, 1
+
+char rc5_Held = 0;
+1468  6B89      	CLRF gbl_rc5_Held, 1
+
+unsigned short rc5_inputData; // input data takes 12 bits
+char rc5_bitCount;
+char rc5_logicInterval, rc5_logicChange;
+enum {
+    rc5_idleState,
+    rc5_initialWaitState,
+    rc5_startBitState,
+    rc5_captureBitState
+};
+
+char rc5_currentState = rc5_idleState;
+146A  6B8D      	CLRF gbl_rc5_currentState, 1
+
+char rc5_pinState = 1;
+146C  0E01      	MOVLW 0x01
+146E  6F8E      	MOVWF gbl_rc5_pinState, 1
+
+
+char rc5_flickBit = 0;
+1470  6B8F      	CLRF gbl_rc5_flickBit, 1
+
+char rc5_flickBitOld = 0;
+1472  6B90      	CLRF gbl_rc5_flickBitOld, 1
+
+char rc5_address = 0;
+1474  6B91      	CLRF gbl_rc5_address, 1
+
+char rc5_command = 0;
+1476  6B92      	CLRF gbl_rc5_command, 1
+
+
+#endif //_AMPCONTROL3_H_
+
+/*****************************************************************************************************************
+ Copyright Daniel Clarke https://electro-dan.co.uk, 14th July 2022
+ Free to use and adapt but NO guarantees or support
+ For PIC18F4455
+*****************************************************************************************************************/
+#include "AmpControl3.h"
+
+#define DELAY delay_s(2)
+#define DELAY_SHORT    delay_ms(100)
+
+// Configuration registers
+#pragma DATA    _CONFIG1L, 00001000b // USBDIV off, CPU divide by 2, PLL direct
+#pragma DATA    _CONFIG1H, 10001101b // enable oscillator switchover, disable failsafe clock monitor, HS
+#pragma DATA    _CONFIG2L, 00011111b // USB voltage regulator disabled, brownout set for 2.1 volts, hardware brownout only, PWRT disabled
+#pragma DATA    _CONFIG2H, 00011110b // Watchdog timer disabled
+#pragma DATA    _CONFIG3H, 10000000b // MCLR enabled, RB4:RB0 digital on POR
+#pragma DATA    _CONFIG4L, 10000000b // Debug off, extended instructions disabled, LVP disabled, disable stack full/underflow reset
+#pragma DATA    _CONFIG5L, 00001111b // Read code protection off
+#pragma DATA    _CONFIG5H, 11000000b // Read EEPROM and boot block protection off
+#pragma DATA    _CONFIG6L, 00001111b // Write code protection off
+#pragma DATA    _CONFIG6H, 11100000b // Write EEPROM, boot block and config register protection off
+#pragma DATA    _CONFIG7L, 00001111b // Table read protection off
+#pragma DATA    _CONFIG7H, 01000000b // Boot block table read protection off
+
+// 20 MHz crystal but the system clock is 10MHz due to CPUDIV configuration
+#pragma CLOCK_FREQ 10000000
+
+
+/******************************************************
+  Function called once only to initialise variables and
+  setup the PIC registers
+*******************************************************/
+void initialise() {
+
+    // IO ports setup
+    trisa = 0x00; // all ouptuts
+11E2  6A92      	CLRF gbl_trisa
+
+    porta = 0x00; // set to off
+11E4  6A80      	CLRF gbl_porta
+
+    trisb = 0x07; // RB0, RB1, RB2 are inputs
+11E6  0E07      	MOVLW 0x07
+11E8  6E93      	MOVWF gbl_trisb
+
+    portb = 0x20; // set to off, except RB5 (max7219 latch)
+11EA  0E20      	MOVLW 0x20
+11EC  6E81      	MOVWF gbl_portb
+
+    trisc = 0xC0; // RC7 (Rx) and RC6 (Tx) are inputs
+11EE  0EC0      	MOVLW 0xC0
+11F0  6E94      	MOVWF gbl_trisc
+
+    portc = 0x04; // Set bit 2 on portc, the pga2310 latch /CS
+11F2  0E04      	MOVLW 0x04
+11F4  6E82      	MOVWF gbl_portc
+
+    trisd = 0x40; // v3.0 - RB6 is an input
+11F6  0E40      	MOVLW 0x40
+11F8  6E95      	MOVWF gbl_trisd
+
+    portd = 0x80; // defaults to off except RD7
+11FA  0E80      	MOVLW 0x80
+11FC  6E83      	MOVWF gbl_portd
+
+    trise = 0x00; // All outputs (relay 74ht595)
+11FE  6A96      	CLRF gbl_trise
+
+    porte = 0x00; // All off
+1200  6A84      	CLRF gbl_porte
+
+
+    osccon.IDLEN = 1; // Enter idle mode on sleep
+1202  8ED3      	BSF gbl_osccon,7
+
+    osccon.IRCF2 = 1; // IRCF2 to IRCF0 are 110 for 4MHz for RC_RUN mode to save power
+1204  8CD3      	BSF gbl_osccon,6
+
+    osccon.IRCF1 = 1;
+1206  8AD3      	BSF gbl_osccon,5
+
+    osccon.IRCF0 = 0;
+1208  98D3      	BCF gbl_osccon,4
+
+
+    // ADC setup
+    adcon0 = 0x00; //  ADC off
+120A  6AC2      	CLRF gbl_adcon0
+
+    adcon1 = 0x0F; // All digital I/O
+120C  0E0F      	MOVLW 0x0F
+120E  6EC1      	MOVWF gbl_adcon1
+
+    
+    //ucon.USBEN = 0; // USB off - v3.0 default is off, instruction not needed
+
+    readData(); // Read in variables from EEPROM
+1210  EC98F005  	CALL readData_00000
+
+    writeRelay(); // v1.1 moved to power on sequence
+1214  EC89F002  	CALL writeRelay_00000
+
+
+    // Timer calculator: http://eng-serve.com/pic/pic_timer.html
+    // Timer 1 setup - interrupt every ~200ms seconds at 10Mhz
+    t1con = 0x30;  //  00 11 0000 - 1:8 prescale, oscil off, internal clock, timer disabled
+1218  0E30      	MOVLW 0x30
+121A  6ECD      	MOVWF gbl_t1con
+
+    iTimer1Count = 0; // Counter for number of interrupts
+121C  6B83      	CLRF gbl_iTimer1Count, 1
+
+    tmr1h = TMR1H_SET; // Set TMR1 to 3072 (tmr1h 12)
+121E  0E0C      	MOVLW 0x0C
+1220  6ECF      	MOVWF gbl_tmr1h
+
+    pie1.TMR1IE = 1; // Timer 1 interrupt
+1222  809D      	BSF gbl_pie1,0
+
+    pir1.TMR1IF = 0; // Clear timer 1 interrupt flag bit
+1224  909E      	BCF gbl_pir1,0
+
+
+    // Timer 2 setup - interrupt every 890us
+    t2con = 0x29;  //  0 0101 0 01 - 1:6 postscale, timer off, 1:4 prescale
+1226  0E29      	MOVLW 0x29
+1228  6ECA      	MOVWF gbl_t2con
+
+    pr2 = IR_PR2_890US; // Preload timer2 comparator value
+122A  0E5C      	MOVLW 0x5C
+122C  6ECB      	MOVWF gbl_pr2
+
+    pie1.TMR2IE = 1; // Timer 2 interrupt
+122E  829D      	BSF gbl_pie1,1
+
+    pir2.TMR2IF = 0; // Clear timer 1 interrupt flag bit
+1230  92A1      	BCF gbl_pir2,1
+
+
+    // Setup for RB0 Interrupt [Power Fail]
+    intcon.INT0IE = 1; // RB0 Interrupt enabled (for power fail)
+1232  88F2      	BSF gbl_intcon,4
+
+    intcon2.INTEDG0 = 1; // RB0 interrupt should occur on rising edge
+1234  8CF1      	BSF gbl_intcon2,6
+
+    intcon.INT0IF = 0; // Clear RB0 interrupt flag bit
+1236  92F2      	BCF gbl_intcon,1
+
+    
+    // Setup for RB1 Interrupt [IR LED]
+    intcon3.INT1E = 1; // RB1 Interrupt (for IR receive)
+1238  86F0      	BSF gbl_intcon3,3
+
+    intcon2.INTEDG1 = 0; // RB1 interrupt should occur on falling edge
+123A  9AF1      	BCF gbl_intcon2,5
+
+    intcon3.INT1IF = 0; // Clear RB1 interrupt flag bit
+123C  90F0      	BCF gbl_intcon3,0
+
+    
+    // Setup for RB2 Interrupt [DC fail]
+    intcon3.INT2E = 1; // RB2 Interrupt (for DC Fail)
+123E  88F0      	BSF gbl_intcon3,4
+
+    intcon2.INTEDG2 = 0; // RB2 interrupt should occur on falling edge
+1240  98F1      	BCF gbl_intcon2,4
+
+    intcon3.INT2IF = 0; // Clear RB2 interrupt flag bit
+1242  92F0      	BCF gbl_intcon3,1
+
+
+    intcon2.RBPU = 1; // Port B pull-ups disabled (otherwise DC fail is not detected)
+1244  8EF1      	BSF gbl_intcon2,7
+
+
+    intcon.PEIE = 1; // Enables all unmasked peripheral interrupts (required for RS232)
+1246  8CF2      	BSF gbl_intcon,6
+
+
+    // rs232 communications setup
+    // SYNC = 0, BRGH = 1, BRG16 = 0
+    // 10MHz Baud rate 9600 = 65 = ((10000000 / 9600) / 16) - 1
+    //spbrg = 65; // 65 = ((10000000 / 9600) / 16) - 1
+    //txsta = 0x26; // 00100110 - 8 bit, transmit enable, async mode, high speed, TSR empty, 9bit (0)
+    //rcsta = 0x90; // 10010000 - serial port enabled, 8 bit reception, async mode continuous recieve, no frame error, no overrun error
+    //baudcon = 0x42; // 01000010 - non-inverted, 8 bit generator, wake up on receive
+
+    //pie1.RCIE = 1; // Usart interrupt receive (no send interrupt)
+    //iRS232Index = 0;
+    
+    RED = 1; // Standby LED
+1248  8680      	BSF gbl_porta,3
+
+
+    delay_s(2);
+124A  0E02      	MOVLW 0x02
+124C  6F94      	MOVWF delay_s_00000_arg_del, 1
+124E  EC28F000  	CALL delay_s_00000
+
+    
+    // v3.0 altered display test
+    ledOn();
+1252  ECC0F003  	CALL ledOn_00000
+
+    ledTest();
+1256  ECDCF005  	CALL ledTest_00000
+
+    delay_s(2);
+125A  0E02      	MOVLW 0x02
+125C  6F94      	MOVWF delay_s_00000_arg_del, 1
+125E  EC28F000  	CALL delay_s_00000
+
+    ledOff();
+1262  ECE4F003  	CALL ledOff_00000
+
+    
+    //bluetoothSetup();
+
+    intcon.GIE = 1;
+1266  8EF2      	BSF gbl_intcon,7
+
+}
+1268  0012      	RETURN
+
+
+//------------------------------------------------------------------------------
+// Interrupt handler
+//------------------------------------------------------------------------------
+void interrupt(void) {
+
+    // Exit power saving mode - change to PRI_RUN
+    //osccon.SCS1 = 0;
+    
+    // external interrupt on RB2 - highest priority [DC fail]
+    if (intcon3.INT2IF && intcon3.INT2IE) {
+147C  CFEAF001  	MOVFF FSR0H,  Int1Context
+1480  CFE9F002  	MOVFF FSR0L,  Int1Context+D'1'
+1484  CFF4F003  	MOVFF PRODH,  Int1Context+D'2'
+1488  CFF3F004  	MOVFF PRODL,  Int1Context+D'3'
+148C  A2F0      	BTFSS gbl_intcon3,1
+148E  D009      	BRA	label193
+1490  A8F0      	BTFSS gbl_intcon3,4
+1492  D007      	BRA	label193
+14A2            label193
+
+        if (!DC_FAIL) {
+1494  B481      	BTFSC gbl_portb,2
+1496  D003      	BRA	label192
+149E            label192
+
+            MUTEOUT = 0; // Mute amps
+1498  9280      	BCF gbl_porta,1
+
+            // Show fault on display
+            // Flag this task to the task array
+            cTask.TASK_INT_EXT2 = 1;
+149A  0100      	MOVLB 0x00
+149C  8972      	BSF gbl_cTask,4, 1
+
+        }
+        intcon3.INT2IF = 0;
+149E  92F0      	BCF gbl_intcon3,1
+
+
+        return; // do not process any other interrupt
+14A0  D09E      	BRA	label217
+1512  D015      	BRA	label203
+
+    }
+    // external interrupt on RB0 - next highest priority [AC fail]
+    if (intcon.INT0IF && intcon.INT0IE) {
+14A2  A2F2      	BTFSS gbl_intcon,1
+14A4  D007      	BRA	label194
+14A6  A8F2      	BTFSS gbl_intcon,4
+14A8  D005      	BRA	label194
+14B4            label194
+
+        MUTEOUT = 0; // Mute amps
+14AA  9280      	BCF gbl_porta,1
+
+        cTask.TASK_INT_EXT0 = 1;
+14AC  0100      	MOVLB 0x00
+14AE  8172      	BSF gbl_cTask,0, 1
+
+        intcon.INT0IF = 0;
+14B0  92F2      	BCF gbl_intcon,1
+
+
+        return; // do not process any other interrupt
+14B2  D095      	BRA	label217
+
+    }
+    // external interrupt on RB1 - IR sensor
+    if (intcon3.INT1IF && intcon3.INT1IE) {        
+14B4  A0F0      	BTFSS gbl_intcon3,0
+14B6  D015      	BRA	label196
+14B8  A6F0      	BTFSS gbl_intcon3,3
+14BA  D013      	BRA	label196
+14E2            label196
+
+        intcon2.INTEDG1 = intfCounter.0; // Toggle edge detection
+14BC  0100      	MOVLB 0x00
+14BE  B188      	BTFSC gbl_intfCounter,0, 1
+14C0  8AF1      	BSF gbl_intcon2,5
+14C2  A188      	BTFSS gbl_intfCounter,0, 1
+14C4  9AF1      	BCF gbl_intcon2,5
+
+        intfCounter++;
+14C6  2B88      	INCF gbl_intfCounter, F, 1
+
+        rc5_logicChange++;
+14C8  2B8C      	INCF gbl_rc5_logicChange, F, 1
+
+        if (rc5_currentState == rc5_idleState) {
+14CA  538D      	MOVF gbl_rc5_currentState, F, 1
+14CC  E109      	BNZ	label195
+14E0            label195
+
+            // If the state was idle, start the timer
+            rc5_logicInterval = 0;
+14CE  6B8B      	CLRF gbl_rc5_logicInterval, 1
+
+            rc5_logicChange = 0;
+14D0  6B8C      	CLRF gbl_rc5_logicChange, 1
+
+            //delay_us(200);
+            // Timer 2 should run for about 200us at first
+            tmr2 = 0;
+14D2  6ACC      	CLRF gbl_tmr2
+
+            pr2 = IR_PR2_200US;
+14D4  0E15      	MOVLW 0x15
+14D6  6ECB      	MOVWF gbl_pr2
+
+            pir1.TMR2IF = 0; // Clear interrupt flag
+14D8  929E      	BCF gbl_pir1,1
+
+            t2con.TMR2ON = 1; // Timer 2 is on
+14DA  84CA      	BSF gbl_t2con,2
+
+            rc5_currentState = rc5_initialWaitState;
+14DC  0E01      	MOVLW 0x01
+14DE  6F8D      	MOVWF gbl_rc5_currentState, 1
+
+        }
+        intcon3.INT1IF = 0; //clear interrupt flag.
+14E0  90F0      	BCF gbl_intcon3,0
+
+    }
+    // Interrupt on timer2 - IR code https://tamilarduino.blogspot.com/2014/06/ir-remote-philips-rc5-decoding-using.html
+    if(pir1.TMR2IF) {
+14E2  A29E      	BTFSS gbl_pir1,1
+14E4  D069      	BRA	label213
+15B8            label213
+
+        rc5_pinState = IR_PIN;
+14E6  0100      	MOVLB 0x00
+14E8  6B8E      	CLRF gbl_rc5_pinState, 1
+14EA  A281      	BTFSS gbl_portb,1
+14EC  D001      	BRA	label197
+14EE  2B8E      	INCF gbl_rc5_pinState, F, 1
+14F0            label197
+
+        if (rc5_currentState != rc5_initialWaitState) {
+14F0  058D      	DECF gbl_rc5_currentState, W, 1
+14F2  E005      	BZ	label198
+
+            rc5_logicInterval++;
+14F4  2B8B      	INCF gbl_rc5_logicInterval, F, 1
+
+            IR_LED = rc5_logicInterval.0; // Flick IR LED
+14F6  B18B      	BTFSC gbl_rc5_logicInterval,0, 1
+14F8  8480      	BSF gbl_porta,2
+14FA  A18B      	BTFSS gbl_rc5_logicInterval,0, 1
+14FC  9480      	BCF gbl_porta,2
+14FE            label198
+
+        }
+        char iReset = 0;
+14FE  6BAA      	CLRF interrupt_27_iReset, 1
+
+        // Switch statement to process IR depending on where/state of the command timer currently expects to be
+        switch (rc5_currentState){
+15AA            label211
+
+            // If in initial wait state - timer completed the first 200us, switch to the normal 890us
+            case rc5_initialWaitState:
+1500  058D      	DECF gbl_rc5_currentState, W, 1
+1502  E008      	BZ	label200
+1514            label200
+
+                // Timer 2 interrupt every 890us
+                tmr2 = 0;
+1514  6ACC      	CLRF gbl_tmr2
+
+                pr2 = IR_PR2_890US; // Preload timer2 comparator value
+1516  0E5C      	MOVLW 0x5C
+1518  6ECB      	MOVWF gbl_pr2
+
+                // Switch to start bit state
+                rc5_currentState = rc5_startBitState;
+151A  0E02      	MOVLW 0x02
+151C  6F8D      	MOVWF gbl_rc5_currentState, 1
+
+                break;
+151E  D045      	BRA	label211
+
+            // If in start bit state - check for (second) start bit, Logic on RB1 must change in 890us or considers as a fault signal.
+            case rc5_startBitState:
+1504  0E02      	MOVLW 0x02
+1506  638D      	CPFSEQ gbl_rc5_currentState, 1
+1508  D001      	BRA	label199
+150A  D00A      	BRA	label201
+150C            label199
+1520            label201
+
+                if ((rc5_logicInterval == 1) && (rc5_logicChange == 1)) {
+1520  058B      	DECF gbl_rc5_logicInterval, W, 1
+1522  E10A      	BNZ	label202
+1524  058C      	DECF gbl_rc5_logicChange, W, 1
+1526  E108      	BNZ	label202
+1538            label202
+
+                    // Valid start bits were found
+                    rc5_logicInterval = 0;
+1528  6B8B      	CLRF gbl_rc5_logicInterval, 1
+
+                    rc5_logicChange = 0;
+152A  6B8C      	CLRF gbl_rc5_logicChange, 1
+
+                    rc5_bitCount = 0;
+152C  6B8A      	CLRF gbl_rc5_bitCount, 1
+
+                    rc5_inputData = 0;
+152E  6B70      	CLRF gbl_rc5_inputData, 1
+1530  6B71      	CLRF gbl_rc5_inputData+D'1', 1
+
+                    rc5_currentState = rc5_captureBitState; // Switch to capturing state
+1532  0E03      	MOVLW 0x03
+1534  6F8D      	MOVWF gbl_rc5_currentState, 1
+
+                } else {
+1536  D039      	BRA	label211
+
+                    iReset = 1;
+1538  0E01      	MOVLW 0x01
+153A  6FAA      	MOVWF interrupt_27_iReset, 1
+
+                }
+                break;
+153C  D036      	BRA	label211
+
+            // If in capture bit state - sample RB1 logic every 1780us (rc5_logicInterval = 2)
+            // Data is only valid if the logic on RB1 changed
+            // Data is stored in rc5_command and rc5_address
+            case rc5_captureBitState:
+150C  0E03      	MOVLW 0x03
+150E  638D      	CPFSEQ gbl_rc5_currentState, 1
+1510  D04A      	BRA	label210
+153E            label203
+
+                // Logic interval must be 2 - 1780us
+                if(rc5_logicInterval == 2) {
+153E  0E02      	MOVLW 0x02
+1540  638B      	CPFSEQ gbl_rc5_logicInterval, 1
+1542  D033      	BRA	label211
+
+                    // Logic change must occur 2 times or less, otherwise it is invalid
+                    if(rc5_logicChange <= 2) {
+1544  518C      	MOVF gbl_rc5_logicChange, W, 1
+1546  0802      	SUBLW 0x02
+1548  E32B      	BNC	label209
+15A0            label209
+
+                        rc5_logicInterval = 0;
+154A  6B8B      	CLRF gbl_rc5_logicInterval, 1
+
+                        rc5_logicChange = 0;
+154C  6B8C      	CLRF gbl_rc5_logicChange, 1
+
+                        // If the number of bits received is less than 12, shift the new bit into the inputData
+                        if(rc5_bitCount < 12) {
+154E  0E0C      	MOVLW 0x0C
+1550  618A      	CPFSLT gbl_rc5_bitCount, 1
+1552  D008      	BRA	label204
+1564            label204
+
+                            rc5_bitCount++;
+1554  2B8A      	INCF gbl_rc5_bitCount, F, 1
+
+                            rc5_inputData <<= 1; // Shift recorded bits to the left
+1556  90D8      	BCF STATUS,C
+1558  3770      	RLCF gbl_rc5_inputData, F, 1
+155A  3771      	RLCF gbl_rc5_inputData+D'1', F, 1
+
+                            if(rc5_pinState == 1) {
+155C  058E      	DECF gbl_rc5_pinState, W, 1
+155E  B4D8      	BTFSC STATUS,Z
+
+                                rc5_inputData.0 = 1; // Add the new bit in
+1560  8170      	BSF gbl_rc5_inputData,0, 1
+
+                            }
+                        } else {
+1562  D023      	BRA	label211
+
+                            // All 12 bits received
+                            rc5_command = rc5_inputData & 0x3F; // 00111111 - command is the last 6 bits
+1564  0E3F      	MOVLW 0x3F
+1566  1570      	ANDWF gbl_rc5_inputData, W, 1
+1568  6F92      	MOVWF gbl_rc5_command, 1
+
+                            rc5_inputData >>= 6; // Shift 6 bits right, clearing command
+156A  0E06      	MOVLW 0x06
+156C  6FAB      	MOVWF CompTempVar711, 1
+156E  53AB      	MOVF CompTempVar711, F, 1
+1570            label205
+1570  E005      	BZ	label206
+1572  90D8      	BCF STATUS,C
+1574  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
+1576  3370      	RRCF gbl_rc5_inputData, F, 1
+1578  07AB      	DECF CompTempVar711, F, 1
+157A  D7FA      	BRA	label205
+157C            label206
+
+                            rc5_address = rc5_inputData & 0x1F; // 00011111 - address is now the last 5 bits
+157C  0E1F      	MOVLW 0x1F
+157E  1570      	ANDWF gbl_rc5_inputData, W, 1
+1580  6F91      	MOVWF gbl_rc5_address, 1
+
+                            rc5_inputData >>= 5; // Shift 5 bits right, clearing address
+1582  0E05      	MOVLW 0x05
+1584  6FAB      	MOVWF CompTempVar712, 1
+1586  53AB      	MOVF CompTempVar712, F, 1
+1588            label207
+1588  E005      	BZ	label208
+158A  90D8      	BCF STATUS,C
+158C  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
+158E  3370      	RRCF gbl_rc5_inputData, F, 1
+1590  07AB      	DECF CompTempVar712, F, 1
+1592  D7FA      	BRA	label207
+1594            label208
+
+                            // Last bit is the flick bit
+                            rc5_flickBit = rc5_inputData;
+1594  5170      	MOVF gbl_rc5_inputData, W, 1
+1596  6F8F      	MOVWF gbl_rc5_flickBit, 1
+
+                            
+                            // Flag this task to the task array - IR command will be processed in the main loop
+                            cTask.TASK_INT_EXT1 = 1;
+1598  8772      	BSF gbl_cTask,3, 1
+
+
+                            // Command finished - reset status
+                            iReset = 1;
+159A  0E01      	MOVLW 0x01
+159C  6FAA      	MOVWF interrupt_27_iReset, 1
+
+                        }
+                    } else {
+159E  D005      	BRA	label211
+
+                        // Not valid - reset status
+                        iReset = 1;
+15A0  0E01      	MOVLW 0x01
+15A2  6FAA      	MOVWF interrupt_27_iReset, 1
+
+                    }
+                }
+                break;
+15A4  D002      	BRA	label211
+
+            default: 
+15A6            label210
+
+                iReset = 1;
+15A6  0E01      	MOVLW 0x01
+15A8  6FAA      	MOVWF interrupt_27_iReset, 1
+
+        }
+        
+        // Reset status if not valid
+        if (iReset) {
+15AA  53AA      	MOVF interrupt_27_iReset, F, 1
+15AC  E004      	BZ	label212
+15B6            label212
+
+            // Not valid - reset status
+            rc5_currentState = rc5_idleState;
+15AE  6B8D      	CLRF gbl_rc5_currentState, 1
+
+            t2con.TMR2ON = 0; // Disable Timer 2
+15B0  94CA      	BCF gbl_t2con,2
+
+            intcon2.INTEDG1 = 0; // Interrupt on falling edge
+15B2  9AF1      	BCF gbl_intcon2,5
+
+            IR_LED = 0; // switch off IR LED
+15B4  9480      	BCF gbl_porta,2
+
+        }
+        pir1.TMR2IF = 0; // Clear interrupt flag
+15B6  929E      	BCF gbl_pir1,1
+
+    }
+    // timer 1 interrupt - reset display timer
+    if (pir1.TMR1IF && pie1.TMR1IE) {
+15B8  A09E      	BTFSS gbl_pir1,0
+15BA  D011      	BRA	label217
+15BC  A09D      	BTFSS gbl_pie1,0
+15BE  D00F      	BRA	label217
+15DE            label217
+
+        // timer 1 will interrupt every 200ms with a 1:8 prescaler at 10MHz and TMR1 preload of 3072
+        // this needs to interrupt longer than the RC5 message time (114ms)
+        // If the mute button was pressed
+        // iMuteWasPressed is cleared before this timer interrupt if the mute button is held
+        if (iMuteHeld < MUTE_HOLD_TIME && iMuteWasPressed) {
+15C0  0E09      	MOVLW 0x09
+15C2  0100      	MOVLB 0x00
+15C4  6175      	CPFSLT gbl_iMuteHeld, 1
+15C6  D003      	BRA	label214
+15C8  5376      	MOVF gbl_iMuteWasPressed, F, 1
+15CA  A4D8      	BTFSS STATUS,Z
+
+            // flag for muting
+            cTask.TASK_TIMER1_MUTE = 1;
+15CC  8B72      	BSF gbl_cTask,5, 1
+15CE            label214
+
+        }
+        // Into 1 second, this goes 5 times at 10MHz
+        if (++iTimer1Count >= TMR1_1SEC) {
+15CE  2B83      	INCF gbl_iTimer1Count, F, 1
+15D0  0E05      	MOVLW 0x05
+15D2  6183      	CPFSLT gbl_iTimer1Count, 1
+15D4  D001      	BRA	label215
+15D6  D002      	BRA	label216
+15D8            label215
+15DC            label216
+
+            iTimer1Count = 0;
+15D8  6B83      	CLRF gbl_iTimer1Count, 1
+
+            // Add this task to the task array
+            cTask.TASK_TIMER1 = 1;
+15DA  8F72      	BSF gbl_cTask,7, 1
+
+        }
+        pir1.TMR1IF = 0; // Clear interrupt flag
+15DC  909E      	BCF gbl_pir1,0
+
+    }
+    // RS232
+    // byte received interrupt
+    /*if (pir1.RCIF && pie1.RCIE) {
+        // pir1.RCIF is cleared automatically once rcreg is read
+        if (rcsta.OERR) { // Overrun error rcsta.OERR
+            rcsta.CREN = 0; // clear bit CREN
+            rcsta.CREN = 1; // set bit CREN
+        } else if (rcsta.FERR) {
+            rs232Buffer[iRS232Index] = rcreg;
+        } else {
+            rs232Buffer[iRS232Index] = rcreg;
+            // Read until line feed or EOT is detected
+            if (!cTask.TASK_RS232) { 
+                while (!pir1.TXIF);
+                if ((rs232Buffer[iRS232Index] == 10) || (rs232Buffer[iRS232Index] == 4)) {
+                    cTask.TASK_RS232 = 1;
+                    //iRS232Index = 0; // Don't reset this until processed as loop needs to know length of command
+                }
+                // Otherwise increment buffer index for next byte received
+                iRS232Index++;
+            }
+        }
+    }*/
+}
+15DE  C004FFF3  	MOVFF Int1Context+D'3',  PRODL
+15E2  C003FFF4  	MOVFF Int1Context+D'2',  PRODH
+15E6  C002FFE9  	MOVFF Int1Context+D'1',  FSR0L
+15EA  C001FFEA  	MOVFF Int1Context,  FSR0H
+15EE  0011      	RETFIE 1
+
+
+// Sends AT commands to the bluetooth module so that PIN and name are unique
+/*void bluetoothSetup() {
+    rs232Print("AT");
+    delay_s(2);
+    rs232Print("AT+NAMEAmp");
+    delay_s(2);
+    rs232Print("AT+PIN3886");
+    delay_s(2);
+}*/
+
+void timer1Reset() {
+
+    // switch off timer, and reset counters
+    //t1con.TMR1ON = 0;
+    iMuteWasPressed = 0;
+0B24  0100      	MOVLB 0x00
+0B26  6B76      	CLRF gbl_iMuteWasPressed, 1
+
+    tmr1h = TMR1H_SET;
+0B28  0E0C      	MOVLW 0x0C
+0B2A  6ECF      	MOVWF gbl_tmr1h
+
+    tmr1l = 0;
+0B2C  6ACE      	CLRF gbl_tmr1l
+
+}
+0B2E  0012      	RETURN
+
+
+/******************************************************
+  EEPROM read and write methods
+*******************************************************/
+void saveData() {
+
+    eepromWrite(0, 10); // To indicate EEPROM has been saved
+0FAC  0100      	MOVLB 0x00
+0FAE  6B93      	CLRF eepromWrit_0001B_arg_address, 1
+0FB0  0E0A      	MOVLW 0x0A
+0FB2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FB4  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(1, iVolume);
+0FB8  0E01      	MOVLW 0x01
+0FBA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FBC  5173      	MOVF gbl_iVolume, W, 1
+0FBE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FC0  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(2, iFrontBalance);
+0FC4  0E02      	MOVLW 0x02
+0FC6  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FC8  5177      	MOVF gbl_iFrontBalance, W, 1
+0FCA  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FCC  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(3, iRearBalance);
+0FD0  0E03      	MOVLW 0x03
+0FD2  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FD4  5178      	MOVF gbl_iRearBalance, W, 1
+0FD6  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FD8  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(4, iRearAdjust);
+0FDC  0E04      	MOVLW 0x04
+0FDE  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FE0  5179      	MOVF gbl_iRearAdjust, W, 1
+0FE2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FE4  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(5, iCentreAdjust);
+0FE8  0E05      	MOVLW 0x05
+0FEA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FEC  517A      	MOVF gbl_iCentreAdjust, W, 1
+0FEE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FF0  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(6, iSubAdjust);
+0FF4  0E06      	MOVLW 0x06
+0FF6  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FF8  517B      	MOVF gbl_iSubAdjust, W, 1
+0FFA  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FFC  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(7, iActiveInput);
+1000  0E07      	MOVLW 0x07
+1002  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1004  517E      	MOVF gbl_iActiveInput, W, 1
+1006  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1008  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(8, iSurroundMode);
+100C  0E08      	MOVLW 0x08
+100E  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1010  5180      	MOVF gbl_iSurroundMode, W, 1
+1012  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1014  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(9, iExtSurroundMode);
+1018  0E09      	MOVLW 0x09
+101A  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+101C  5181      	MOVF gbl_iExtSurroundMode, W, 1
+101E  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1020  ECF9F006  	CALL eepromWrit_0001B
+
+    eepromWrite(10, iTrigger);
+1024  0E0A      	MOVLW 0x0A
+1026  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1028  517F      	MOVF gbl_iTrigger, W, 1
+102A  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+102C  ECF9F006  	CALL eepromWrit_0001B
+
+}
+1030  0012      	RETURN
+
+
+void eepromWrite(char address, char data) {
+
+    char intconsave = intcon;
+0DF2  50F2      	MOVF gbl_intcon, W
+0DF4  6F95      	MOVWF eepromWrit_0001B_1_intconsave, 1
+
+    
+    // Load address and data
+    eeadr = address;
+0DF6  5193      	MOVF eepromWrit_0001B_arg_address, W, 1
+0DF8  6EA9      	MOVWF gbl_eeadr
+
+    eedata = data;
+0DFA  5194      	MOVF eepromWrit_0001B_arg_data, W, 1
+0DFC  6EA8      	MOVWF gbl_eedata
+
+
+    eecon1.EEPGD = 0; // Point to DATA memory
+0DFE  9EA6      	BCF gbl_eecon1,7
+
+    eecon1.CFGS = 0; // Access EEPROM
+0E00  9CA6      	BCF gbl_eecon1,6
+
+    eecon1.WREN = 1; // Enable writes
+0E02  84A6      	BSF gbl_eecon1,2
+
+    
+    // Required write sequence
+    intcon = 0;
+0E04  6AF2      	CLRF gbl_intcon
+
+    eecon2 = 0x55; // Write 55h
+0E06  0E55      	MOVLW 0x55
+0E08  6EA7      	MOVWF gbl_eecon2
+
+    eecon2 = 0xAA; // Write 0AAh
+0E0A  0EAA      	MOVLW 0xAA
+0E0C  6EA7      	MOVWF gbl_eecon2
+
+    eecon1.WR = 1; // Set WR bit to begin write
+0E0E  82A6      	BSF gbl_eecon1,1
+
+    intcon = intconsave;
+0E10  5195      	MOVF eepromWrit_0001B_1_intconsave, W, 1
+0E12  6EF2      	MOVWF gbl_intcon
+
+    eecon1.WREN = 0; // Disable writes on write complete (EEIF set)
+0E14  94A6      	BCF gbl_eecon1,2
+
+    while(!pir2.EEIF); // Wait for the interrupt bit EEIF to be set
+0E16            label147
+0E16  A8A1      	BTFSS gbl_pir2,4
+0E18  D7FE      	BRA	label147
+
+    pir2.EEIF = 0; // Clear EEIF
+0E1A  98A1      	BCF gbl_pir2,4
+
+}
+0E1C  0012      	RETURN
+
+
+/******************************************************
+  Function to read the current variables from ROM
+*******************************************************/
+void readData() {
+
+    // Read initial values from EEPROM
+    // Do not read other variables if the EEPROM has not been saved before
+    // as all default will be 0xFF
+    if (eepromRead(0) == 10) {
+0B30  0100      	MOVLB 0x00
+0B32  6B93      	CLRF eepromRead_00000_arg_address, 1
+0B34  EC8AF005  	CALL eepromRead_00000
+0B38  0E0A      	MOVLW 0x0A
+0B3A  6394      	CPFSEQ CompTempVarRet582, 1
+
+        iVolume = eepromRead(1);
+0B3E  0E01      	MOVLW 0x01
+0B40  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B42  EC8AF005  	CALL eepromRead_00000
+0B46  5194      	MOVF CompTempVarRet582, W, 1
+0B48  6F73      	MOVWF gbl_iVolume, 1
+
+        iFrontBalance = eepromRead(2);
+0B4A  0E02      	MOVLW 0x02
+0B4C  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B4E  EC8AF005  	CALL eepromRead_00000
+0B52  5194      	MOVF CompTempVarRet582, W, 1
+0B54  6F77      	MOVWF gbl_iFrontBalance, 1
+
+        iRearBalance = eepromRead(3);
+0B56  0E03      	MOVLW 0x03
+0B58  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B5A  EC8AF005  	CALL eepromRead_00000
+0B5E  5194      	MOVF CompTempVarRet582, W, 1
+0B60  6F78      	MOVWF gbl_iRearBalance, 1
+
+        iRearAdjust = eepromRead(4);
+0B62  0E04      	MOVLW 0x04
+0B64  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B66  EC8AF005  	CALL eepromRead_00000
+0B6A  5194      	MOVF CompTempVarRet582, W, 1
+0B6C  6F79      	MOVWF gbl_iRearAdjust, 1
+
+        iCentreAdjust = eepromRead(5);
+0B6E  0E05      	MOVLW 0x05
+0B70  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B72  EC8AF005  	CALL eepromRead_00000
+0B76  5194      	MOVF CompTempVarRet582, W, 1
+0B78  6F7A      	MOVWF gbl_iCentreAdjust, 1
+
+        iSubAdjust = eepromRead(6);
+0B7A  0E06      	MOVLW 0x06
+0B7C  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B7E  EC8AF005  	CALL eepromRead_00000
+0B82  5194      	MOVF CompTempVarRet582, W, 1
+0B84  6F7B      	MOVWF gbl_iSubAdjust, 1
+
+        iActiveInput = eepromRead(7);
+0B86  0E07      	MOVLW 0x07
+0B88  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B8A  EC8AF005  	CALL eepromRead_00000
+0B8E  5194      	MOVF CompTempVarRet582, W, 1
+0B90  6F7E      	MOVWF gbl_iActiveInput, 1
+
+        iSurroundMode = eepromRead(8);
+0B92  0E08      	MOVLW 0x08
+0B94  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0B96  EC8AF005  	CALL eepromRead_00000
+0B9A  5194      	MOVF CompTempVarRet582, W, 1
+0B9C  6F80      	MOVWF gbl_iSurroundMode, 1
+
+        iExtSurroundMode = eepromRead(9);
+0B9E  0E09      	MOVLW 0x09
+0BA0  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0BA2  EC8AF005  	CALL eepromRead_00000
+0BA6  5194      	MOVF CompTempVarRet582, W, 1
+0BA8  6F81      	MOVWF gbl_iExtSurroundMode, 1
+
+        iTrigger = eepromRead(10);
+0BAA  0E0A      	MOVLW 0x0A
+0BAC  6F93      	MOVWF eepromRead_00000_arg_address, 1
+0BAE  EC8AF005  	CALL eepromRead_00000
+0BB2  5194      	MOVF CompTempVarRet582, W, 1
+0BB4  6F7F      	MOVWF gbl_iTrigger, 1
+
+    }
+}
+0B3C  0012      	RETURN
+0BB6  0012      	RETURN
+
+
+char eepromRead(char address) {
+
+    // Load address
+    eeadr = address;
+0B14  5193      	MOVF eepromRead_00000_arg_address, W, 1
+0B16  6EA9      	MOVWF gbl_eeadr
+
+    eecon1.EEPGD = 0; // Point to DATA memory
+0B18  9EA6      	BCF gbl_eecon1,7
+
+    eecon1.CFGS = 0; // Access EEPROM
+0B1A  9CA6      	BCF gbl_eecon1,6
+
+    
+    // Read, data is available in eedata the next cycle.
+    eecon1.RD = 1;
+0B1C  80A6      	BSF gbl_eecon1,0
+
+    
+    // Return value
+    return eedata;
+0B1E  50A8      	MOVF gbl_eedata, W
+0B20  6F94      	MOVWF CompTempVarRet582, 1
+
+}
+0B22  0012      	RETURN
+
+
+/**************************************************************************************
+    LED Display Functions
+**************************************************************************************/
+
+char ledData1[8];
+char ledData2[8];
+
+// Converts a string of characters into decoded 7 segment bytes for LED character array
+// Optionally writes these bytes to LED displays
+void ledPrint(char iLine, unsigned char *s) {
+
+    char dig;
+    for (dig = 0; dig < 8; dig++) {
+0102  6BA5      	CLRF ledPrint_00000_1_dig, 1
+0104            label9
+0104  0E08      	MOVLW 0x08
+0106  61A5      	CPFSLT ledPrint_00000_1_dig, 1
+01BC  2BA5      	INCF ledPrint_00000_1_dig, F, 1
+01BE  D7A2      	BRA	label9
+
+        if (*s) {
+010A  519B      	MOVF ledPrint_00000_arg_s+D'1', W, 1
+010C  6EEA      	MOVWF FSR0H
+010E  519A      	MOVF ledPrint_00000_arg_s, W, 1
+0110  6EE9      	MOVWF FSR0L
+0112  52EF      	MOVF INDF0, F
+0114  E042      	BZ	label11
+019A            label11
+
+            if (iLine == 1)
+0116  0599      	DECF ledPrint_00000_arg_iLine, W, 1
+0118  E120      	BNZ	label10
+015A            label10
+
+                ledData1[dig] = displayASCIItoSeg[*s++ - 0x20];
+011A  EE00F005  	LFSR 0x00,  gbl_displayASCIItoSeg
+011E  50E9      	MOVF FSR0L, W
+0120  50EA      	MOVF FSR0H, W
+0122  6FA7      	MOVWF CompTempVar586, 1
+0124  50E9      	MOVF FSR0L, W
+0126  6FA8      	MOVWF CompTempVar587, 1
+0128  519B      	MOVF ledPrint_00000_arg_s+D'1', W, 1
+012A  6EEA      	MOVWF FSR0H
+012C  519A      	MOVF ledPrint_00000_arg_s, W, 1
+012E  6EE9      	MOVWF FSR0L
+0130  4B9A      	INFSNZ ledPrint_00000_arg_s, F, 1
+0132  2B9B      	INCF ledPrint_00000_arg_s+D'1', F, 1
+0134  0E20      	MOVLW 0x20
+0136  5CEF      	SUBWF INDF0, W
+0138  6FA6      	MOVWF CompTempVar585, 1
+013A  51A6      	MOVF CompTempVar585, W, 1
+013C  27A8      	ADDWF CompTempVar587, F, 1
+013E  51A8      	MOVF CompTempVar587, W, 1
+0140  6EE9      	MOVWF FSR0L
+0142  51A7      	MOVF CompTempVar586, W, 1
+0144  6EEA      	MOVWF FSR0H
+0146  50EF      	MOVF INDF0, W
+0148  6FA9      	MOVWF CompTempVar588, 1
+014A  EE00F060  	LFSR 0x00,  gbl_ledData1
+014E  50E9      	MOVF FSR0L, W
+0150  51A5      	MOVF ledPrint_00000_1_dig, W, 1
+0152  26E9      	ADDWF FSR0L, F
+0154  51A9      	MOVF CompTempVar588, W, 1
+0156  6EEF      	MOVWF INDF0
+
+            else
+0158  D031      	BRA	label13
+
+                ledData2[dig] = displayASCIItoSeg[*s++ - 0x20];
+015A  EE00F005  	LFSR 0x00,  gbl_displayASCIItoSeg
+015E  50E9      	MOVF FSR0L, W
+0160  50EA      	MOVF FSR0H, W
+0162  6FA7      	MOVWF CompTempVar592, 1
+0164  50E9      	MOVF FSR0L, W
+0166  6FA8      	MOVWF CompTempVar593, 1
+0168  519B      	MOVF ledPrint_00000_arg_s+D'1', W, 1
+016A  6EEA      	MOVWF FSR0H
+016C  519A      	MOVF ledPrint_00000_arg_s, W, 1
+016E  6EE9      	MOVWF FSR0L
+0170  4B9A      	INFSNZ ledPrint_00000_arg_s, F, 1
+0172  2B9B      	INCF ledPrint_00000_arg_s+D'1', F, 1
+0174  0E20      	MOVLW 0x20
+0176  5CEF      	SUBWF INDF0, W
+0178  6FA6      	MOVWF CompTempVar591, 1
+017A  51A6      	MOVF CompTempVar591, W, 1
+017C  27A8      	ADDWF CompTempVar593, F, 1
+017E  51A8      	MOVF CompTempVar593, W, 1
+0180  6EE9      	MOVWF FSR0L
+0182  51A7      	MOVF CompTempVar592, W, 1
+0184  6EEA      	MOVWF FSR0H
+0186  50EF      	MOVF INDF0, W
+0188  6FA9      	MOVWF CompTempVar594, 1
+018A  EE00F068  	LFSR 0x00,  gbl_ledData2
+018E  50E9      	MOVF FSR0L, W
+0190  51A5      	MOVF ledPrint_00000_1_dig, W, 1
+0192  26E9      	ADDWF FSR0L, F
+0194  51A9      	MOVF CompTempVar594, W, 1
+0196  6EEF      	MOVWF INDF0
+
+        } else {
+0198  D011      	BRA	label13
+
+            if (iLine == 1)
+019A  0599      	DECF ledPrint_00000_arg_iLine, W, 1
+019C  E108      	BNZ	label12
+01AE            label12
+
+                ledData1[dig] = 0;
+019E  EE00F060  	LFSR 0x00,  gbl_ledData1
+01A2  50E9      	MOVF FSR0L, W
+01A4  51A5      	MOVF ledPrint_00000_1_dig, W, 1
+01A6  26E9      	ADDWF FSR0L, F
+01A8  0E00      	MOVLW 0x00
+01AA  6EEF      	MOVWF INDF0
+
+            else
+01AC  D007      	BRA	label13
+01BC            label13
+
+                ledData2[dig] = 0;
+01AE  EE00F068  	LFSR 0x00,  gbl_ledData2
+01B2  50E9      	MOVF FSR0L, W
+01B4  51A5      	MOVF ledPrint_00000_1_dig, W, 1
+01B6  26E9      	ADDWF FSR0L, F
+01B8  0E00      	MOVLW 0x00
+01BA  6EEF      	MOVWF INDF0
+
+        }
+    }
+}
+0108  0012      	RETURN
+
+
+// Converts an ASCII char to decoded byte and places it in LED array
+// Support decimal places
+void ledChar(char iChar, char iHasDot) {
+
+    char iDecoded = displayASCIItoSeg[iChar - 0x20];
+01C0  EE00F005  	LFSR 0x00,  gbl_displayASCIItoSeg
+01C4  50E9      	MOVF FSR0L, W
+01C6  0E20      	MOVLW 0x20
+01C8  5D9B      	SUBWF ledChar_00000_arg_iChar, W, 1
+01CA  26E9      	ADDWF FSR0L, F
+01CC  50EF      	MOVF INDF0, W
+01CE  6F9D      	MOVWF ledChar_00000_1_iDecoded, 1
+
+    if (iHasDot)
+01D0  539C      	MOVF ledChar_00000_arg_iHasDot, F, 1
+01D2  E003      	BZ	label14
+01DA            label14
+
+        iDecoded = iDecoded | 0x80;
+01D4  0E80      	MOVLW 0x80
+01D6  119D      	IORWF ledChar_00000_1_iDecoded, W, 1
+01D8  6F9D      	MOVWF ledChar_00000_1_iDecoded, 1
+
+    if (ledCurrentLine == 1) {
+01DA  0586      	DECF gbl_ledCurrentLine, W, 1
+01DC  E108      	BNZ	label15
+01EE            label15
+
+        ledData1[ledCurrentCol] = iDecoded;
+01DE  EE00F060  	LFSR 0x00,  gbl_ledData1
+01E2  50E9      	MOVF FSR0L, W
+01E4  5187      	MOVF gbl_ledCurrentCol, W, 1
+01E6  26E9      	ADDWF FSR0L, F
+01E8  519D      	MOVF ledChar_00000_1_iDecoded, W, 1
+01EA  6EEF      	MOVWF INDF0
+
+    } else {
+01EC  D007      	BRA	label16
+01FC            label16
+
+        ledData2[ledCurrentCol] = iDecoded;
+01EE  EE00F068  	LFSR 0x00,  gbl_ledData2
+01F2  50E9      	MOVF FSR0L, W
+01F4  5187      	MOVF gbl_ledCurrentCol, W, 1
+01F6  26E9      	ADDWF FSR0L, F
+01F8  519D      	MOVF ledChar_00000_1_iDecoded, W, 1
+01FA  6EEF      	MOVWF INDF0
+
+    }
+    if (ledCurrentCol < 8)
+01FC  0E08      	MOVLW 0x08
+01FE  6187      	CPFSLT gbl_ledCurrentCol, 1
+
+        ledCurrentCol++;
+0202  2B87      	INCF gbl_ledCurrentCol, F, 1
+
+}
+0200  0012      	RETURN
+0204  0012      	RETURN
+
+
+// LED test function
+void ledTest() {
+
+    ledPrint(1, "Init on");
+0BB8  0E01      	MOVLW 0x01
+0BBA  0100      	MOVLB 0x00
+0BBC  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0BBE  0E20      	MOVLW 0x20
+0BC0  6FA0      	MOVWF CompTempVar600+D'4', 1
+0BC2  0E49      	MOVLW 0x49
+0BC4  6F9C      	MOVWF CompTempVar600, 1
+0BC6  0E69      	MOVLW 0x69
+0BC8  6F9E      	MOVWF CompTempVar600+D'2', 1
+0BCA  0E6E      	MOVLW 0x6E
+0BCC  6F9D      	MOVWF CompTempVar600+D'1', 1
+0BCE  6FA2      	MOVWF CompTempVar600+D'6', 1
+0BD0  0E6F      	MOVLW 0x6F
+0BD2  6FA1      	MOVWF CompTempVar600+D'5', 1
+0BD4  0E74      	MOVLW 0x74
+0BD6  6F9F      	MOVWF CompTempVar600+D'3', 1
+0BD8  6BA3      	CLRF CompTempVar600+D'7', 1
+0BDA  0E00      	MOVLW HIGH(CompTempVar600+D'0')
+0BDC  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0BDE  0E9C      	MOVLW LOW(CompTempVar600+D'0')
+0BE0  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0BE2  EC81F000  	CALL ledPrint_00000
+
+    ledPrint(2, "Testing");
+0BE6  0E02      	MOVLW 0x02
+0BE8  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0BEA  0E54      	MOVLW 0x54
+0BEC  6F9C      	MOVWF CompTempVar602, 1
+0BEE  0E65      	MOVLW 0x65
+0BF0  6F9D      	MOVWF CompTempVar602+D'1', 1
+0BF2  0E73      	MOVLW 0x73
+0BF4  6F9E      	MOVWF CompTempVar602+D'2', 1
+0BF6  0E74      	MOVLW 0x74
+0BF8  6F9F      	MOVWF CompTempVar602+D'3', 1
+0BFA  0E69      	MOVLW 0x69
+0BFC  6FA0      	MOVWF CompTempVar602+D'4', 1
+0BFE  0E6E      	MOVLW 0x6E
+0C00  6FA1      	MOVWF CompTempVar602+D'5', 1
+0C02  0E67      	MOVLW 0x67
+0C04  6FA2      	MOVWF CompTempVar602+D'6', 1
+0C06  6BA3      	CLRF CompTempVar602+D'7', 1
+0C08  0E00      	MOVLW HIGH(CompTempVar602+D'0')
+0C0A  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0C0C  0E9C      	MOVLW LOW(CompTempVar602+D'0')
+0C0E  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0C10  EC81F000  	CALL ledPrint_00000
+
+    ledWrite();
+0C14  EC58F000  	CALL ledWrite_00000
+
+}
+0C18  0012      	RETURN
+
+
+
+// Setup the MAX7219 LED displays by sending the required configuration bytes
+void ledSetup() {
+
+    // Scan limit
+    ledLatchDown();
+023A  EC54F000  	CALL ledLatchDo_0001C
+
+    ledSendChar(0x0B);
+023E  0E0B      	MOVLW 0x0B
+0240  0100      	MOVLB 0x00
+0242  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+0244  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x07); // Scan all 8 digits
+0248  0E07      	MOVLW 0x07
+024A  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+024C  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x0B);
+0250  0E0B      	MOVLW 0x0B
+0252  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+0254  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x07); // Scan all 8 digits
+0258  0E07      	MOVLW 0x07
+025A  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+025C  EC3BF000  	CALL ledSendCha_0001D
+
+    ledLatchUp();
+0260  EC4BF000  	CALL ledLatchUp_00000
+
+    
+    // Set no decode mode
+    ledLatchDown();
+0264  EC54F000  	CALL ledLatchDo_0001C
+
+    ledSendChar(0x09);
+0268  0E09      	MOVLW 0x09
+026A  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+026C  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0);
+0270  6B9B      	CLRF ledSendCha_0001D_arg_iData, 1
+0272  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x09);
+0276  0E09      	MOVLW 0x09
+0278  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+027A  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0);
+027E  6B9B      	CLRF ledSendCha_0001D_arg_iData, 1
+0280  EC3BF000  	CALL ledSendCha_0001D
+
+    ledLatchUp();
+0284  EC4BF000  	CALL ledLatchUp_00000
+
+    
+    // Set intensity
+    ledLatchDown();
+0288  EC54F000  	CALL ledLatchDo_0001C
+
+    ledSendChar(0x0A);
+028C  0E0A      	MOVLW 0x0A
+028E  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+0290  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x06); // A: 21/32, 8: 17/32, 6:13/32
+0294  0E06      	MOVLW 0x06
+0296  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+0298  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x0A);
+029C  0E0A      	MOVLW 0x0A
+029E  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+02A0  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x06); // A: 21/32, 8: 17/32, 6:13/32
+02A4  0E06      	MOVLW 0x06
+02A6  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+02A8  EC3BF000  	CALL ledSendCha_0001D
+
+    ledLatchUp();
+02AC  EC4BF000  	CALL ledLatchUp_00000
+
+}
+02B0  0012      	RETURN
+
+
+// Start LED display
+void ledOn() {
+
+    // v3.0 Power on and setup
+    LEDDATA = 0;
+0780  9681      	BCF gbl_portb,3
+
+    LEDCLOCK = 0;
+0782  9881      	BCF gbl_portb,4
+
+    LEDLATCH = 1;
+0784  8A81      	BSF gbl_portb,5
+
+    LEDDISPON = 0;
+0786  9E83      	BCF gbl_portd,7
+
+    //delay_s(1);
+    delay_ms(250);
+0788  0EFA      	MOVLW 0xFA
+078A  0100      	MOVLB 0x00
+078C  6F95      	MOVWF delay_ms_00000_arg_del, 1
+078E  EC10F000  	CALL delay_ms_00000
+
+    ledSetup();
+0792  EC1DF001  	CALL ledSetup_00000
+
+    
+    // No shutdown
+    ledLatchDown();
+0796  EC54F000  	CALL ledLatchDo_0001C
+
+    ledSendChar(0x0C);
+079A  0E0C      	MOVLW 0x0C
+079C  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+079E  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x01); // no shutdown
+07A2  0E01      	MOVLW 0x01
+07A4  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+07A6  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x0C);
+07AA  0E0C      	MOVLW 0x0C
+07AC  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+07AE  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x01); // no shutdown
+07B2  0E01      	MOVLW 0x01
+07B4  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+07B6  EC3BF000  	CALL ledSendCha_0001D
+
+    ledLatchUp();
+07BA  EC4BF000  	CALL ledLatchUp_00000
+
+    // Startup time delay
+    delay_us(250);
+07BE  0EFA      	MOVLW 0xFA
+07C0  6F9B      	MOVWF delay_us_00000_arg_del, 1
+07C2  EC06F000  	CALL delay_us_00000
+
+}
+07C6  0012      	RETURN
+
+
+// Shutdown LED display
+void ledOff() {
+
+    // Shutdown
+    ledLatchDown();
+07C8  EC54F000  	CALL ledLatchDo_0001C
+
+    ledSendChar(0x0C);
+07CC  0E0C      	MOVLW 0x0C
+07CE  0100      	MOVLB 0x00
+07D0  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+07D2  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x00); // shutdown
+07D6  6B9B      	CLRF ledSendCha_0001D_arg_iData, 1
+07D8  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x0C);
+07DC  0E0C      	MOVLW 0x0C
+07DE  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+07E0  EC3BF000  	CALL ledSendCha_0001D
+
+    ledSendChar(0x00); // shutdown
+07E4  6B9B      	CLRF ledSendCha_0001D_arg_iData, 1
+07E6  EC3BF000  	CALL ledSendCha_0001D
+
+    ledLatchUp();
+07EA  EC4BF000  	CALL ledLatchUp_00000
+
+    // v3.0, remove the power
+    LEDDISPON = 1;
+07EE  8E83      	BSF gbl_portd,7
+
+    delay_ms(100);
+07F0  0E64      	MOVLW 0x64
+07F2  6F95      	MOVWF delay_ms_00000_arg_del, 1
+07F4  EC10F000  	CALL delay_ms_00000
+
+}
+07F8  0012      	RETURN
+
+
+// Write the bytes set in each array to the MAX7219 LED displays
+void ledWrite() {
+
+    char n;
+    char d = 7; // Characters in array are written out backwards so start from furthest (7)
+00B0  0E07      	MOVLW 0x07
+00B2  0100      	MOVLB 0x00
+00B4  6F9A      	MOVWF ledWrite_00000_1_d, 1
+
+    
+    // Loop through digits 0 to 8 (addressed as 1 to 9)
+    for (n = 1; n < 9; n++) { 
+00B6  0E01      	MOVLW 0x01
+00B8  6F99      	MOVWF ledWrite_00000_1_n, 1
+00BA            label8
+00BA  0E09      	MOVLW 0x09
+00BC  6199      	CPFSLT ledWrite_00000_1_n, 1
+00FE  2B99      	INCF ledWrite_00000_1_n, F, 1
+0100  D7DC      	BRA	label8
+
+        // Writing character to second device
+        ledLatchDown();
+00C0  EC54F000  	CALL ledLatchDo_0001C
+
+        ledSendChar(n); // Digit to write
+00C4  5199      	MOVF ledWrite_00000_1_n, W, 1
+00C6  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+00C8  EC3BF000  	CALL ledSendCha_0001D
+
+        ledSendChar(ledData2[d]); // Data to write
+00CC  EE00F068  	LFSR 0x00,  gbl_ledData2
+00D0  50E9      	MOVF FSR0L, W
+00D2  519A      	MOVF ledWrite_00000_1_d, W, 1
+00D4  26E9      	ADDWF FSR0L, F
+00D6  50EF      	MOVF INDF0, W
+00D8  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+00DA  EC3BF000  	CALL ledSendCha_0001D
+
+        
+        // Writing character to first device
+        ledSendChar(n); // Digit to write
+00DE  5199      	MOVF ledWrite_00000_1_n, W, 1
+00E0  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+00E2  EC3BF000  	CALL ledSendCha_0001D
+
+        ledSendChar(ledData1[d]); // Digit to write
+00E6  EE00F060  	LFSR 0x00,  gbl_ledData1
+00EA  50E9      	MOVF FSR0L, W
+00EC  519A      	MOVF ledWrite_00000_1_d, W, 1
+00EE  26E9      	ADDWF FSR0L, F
+00F0  50EF      	MOVF INDF0, W
+00F2  6F9B      	MOVWF ledSendCha_0001D_arg_iData, 1
+00F4  EC3BF000  	CALL ledSendCha_0001D
+
+        ledLatchUp();
+00F8  EC4BF000  	CALL ledLatchUp_00000
+
+        d--; // Decrement array counter
+00FC  079A      	DECF ledWrite_00000_1_d, F, 1
+
+    }
+}
+00BE  0012      	RETURN
+
+
+void ledLatchDown() {
+
+    // Load the new register
+    LEDDATA = 0;
+00A8  9681      	BCF gbl_portb,3
+
+    LEDCLOCK = 0;
+00AA  9881      	BCF gbl_portb,4
+
+    LEDLATCH = 0; // Clock must fall so that last bit is clocked out
+00AC  9A81      	BCF gbl_portb,5
+
+}
+00AE  0012      	RETURN
+
+
+void ledLatchUp() {
+
+    // Load the new register
+    LEDLATCH = 1;
+0096  8A81      	BSF gbl_portb,5
+
+    LEDCLOCK = 0; // Clock must fall after latch raised
+0098  9881      	BCF gbl_portb,4
+
+    LEDDATA = 0; // Data to default
+009A  9681      	BCF gbl_portb,3
+
+    delay_us(LEDDELAYUS); // Need to delay before starting again
+009C  0E28      	MOVLW 0x28
+009E  0100      	MOVLB 0x00
+00A0  6F9B      	MOVWF delay_us_00000_arg_del, 1
+00A2  EC06F000  	CALL delay_us_00000
+
+}
+00A6  0012      	RETURN
+
+
+// Write a single piece of data (byte) out serially
+// Uses bit-banging to control protocol and delays
+void ledSendChar(char iData) {
+
+    for (char cBitSelect = 0x80; cBitSelect; cBitSelect >>= 1) {
+0076  0E80      	MOVLW 0x80
+0078  6F9C      	MOVWF ledSendCha_0001D_2_cBitSelect, 1
+007A            label5
+007A  539C      	MOVF ledSendCha_0001D_2_cBitSelect, F, 1
+007C  B4D8      	BTFSC STATUS,Z
+0090  90D8      	BCF STATUS,C
+0092  339C      	RRCF ledSendCha_0001D_2_cBitSelect, F, 1
+0094  D7F2      	BRA	label5
+
+        LEDCLOCK = 0; // Clock cleared
+0080  9881      	BCF gbl_portb,4
+
+        if (iData & cBitSelect)
+0082  519C      	MOVF ledSendCha_0001D_2_cBitSelect, W, 1
+0084  159B      	ANDWF ledSendCha_0001D_arg_iData, W, 1
+0086  E002      	BZ	label6
+008C            label6
+
+            LEDDATA = 1;
+0088  8681      	BSF gbl_portb,3
+
+        else
+008A  D001      	BRA	label7
+008E            label7
+
+            LEDDATA = 0;
+008C  9681      	BCF gbl_portb,3
+
+        LEDCLOCK = 1; // Clock set high, so bit is loaded onto the shift register
+008E  8881      	BSF gbl_portb,4
+
+    }
+}
+007E  0012      	RETURN
+
+
+// Power on routine
+void doPower() {
+
+    if (iPower) {
+0E5E  0100      	MOVLB 0x00
+0E60  537C      	MOVF gbl_iPower, F, 1
+0E62  E044      	BZ	label150
+0EEC            label150
+
+        // Power off sequence
+        MUTEOUT = 0; // Mute amps
+0E64  9280      	BCF gbl_porta,1
+
+        // Switch on green (for muted)
+        BLUE = 0;
+0E66  9A80      	BCF gbl_porta,5
+
+        GREEN = 1;
+0E68  8880      	BSF gbl_porta,4
+
+        RED = 0;
+0E6A  9680      	BCF gbl_porta,3
+
+        
+        // Disable timer 1
+        t1con.TMR1ON = 0;
+0E6C  90CD      	BCF gbl_t1con,0
+
+
+        //saveData(); // Save variables - moved because interrupts need to be enabled
+        
+        // Goodbye!
+        ledPrint(1, "Goodbye");
+0E6E  0E01      	MOVLW 0x01
+0E70  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0E72  0E47      	MOVLW 0x47
+0E74  6F9C      	MOVWF CompTempVar612, 1
+0E76  0E6F      	MOVLW 0x6F
+0E78  6F9D      	MOVWF CompTempVar612+D'1', 1
+0E7A  6F9E      	MOVWF CompTempVar612+D'2', 1
+0E7C  0E64      	MOVLW 0x64
+0E7E  6F9F      	MOVWF CompTempVar612+D'3', 1
+0E80  0E62      	MOVLW 0x62
+0E82  6FA0      	MOVWF CompTempVar612+D'4', 1
+0E84  0E79      	MOVLW 0x79
+0E86  6FA1      	MOVWF CompTempVar612+D'5', 1
+0E88  0E65      	MOVLW 0x65
+0E8A  6FA2      	MOVWF CompTempVar612+D'6', 1
+0E8C  6BA3      	CLRF CompTempVar612+D'7', 1
+0E8E  0E00      	MOVLW HIGH(CompTempVar612+D'0')
+0E90  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0E92  0E9C      	MOVLW LOW(CompTempVar612+D'0')
+0E94  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0E96  EC81F000  	CALL ledPrint_00000
+
+        ledPrint(2, "");
+0E9A  0E02      	MOVLW 0x02
+0E9C  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0E9E  6B94      	CLRF CompTempVar614, 1
+0EA0  0E00      	MOVLW HIGH(CompTempVar614+D'0')
+0EA2  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0EA4  0E94      	MOVLW LOW(CompTempVar614+D'0')
+0EA6  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0EA8  EC81F000  	CALL ledPrint_00000
+
+        ledWrite();
+0EAC  EC58F000  	CALL ledWrite_00000
+
+        
+        iPower = 0;
+0EB0  6B7C      	CLRF gbl_iPower, 1
+
+        // Write relay (disables or enables relays if powered)
+        // V2.2 - moved here so that triggers are shut off immediately instead of after the delay
+        // V2.4 - added a slight delay so the power isn't removed from the trigger output at the same time the mute occurs
+        delay_ms(250);
+0EB2  0EFA      	MOVLW 0xFA
+0EB4  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0EB6  EC10F000  	CALL delay_ms_00000
+
+        delay_ms(250); // v3.0, delay_ms call with 500 is invalid (max 255), added 2x 250 instead
+0EBA  0EFA      	MOVLW 0xFA
+0EBC  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0EBE  EC10F000  	CALL delay_ms_00000
+
+        writeRelay();
+0EC2  EC89F002  	CALL writeRelay_00000
+
+
+        delay_ms(250); // Force a 1 second wait before powering down the amps
+0EC6  0EFA      	MOVLW 0xFA
+0EC8  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0ECA  EC10F000  	CALL delay_ms_00000
+
+        delay_ms(250); // v3.0, delay_ms call with 500 is invalid (max 255), added 2x 250 instead
+0ECE  0EFA      	MOVLW 0xFA
+0ED0  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0ED2  EC10F000  	CALL delay_ms_00000
+
+        POWEROUT = 0; // Power off amps
+0ED6  9080      	BCF gbl_porta,0
+
+
+        delay_s(6); // Force a 6 second wait before the ability to switch on again (allows electronics to drain)
+0ED8  0E06      	MOVLW 0x06
+0EDA  6F94      	MOVWF delay_s_00000_arg_del, 1
+0EDC  EC28F000  	CALL delay_s_00000
+
+        
+        ledOff();
+0EE0  ECE4F003  	CALL ledOff_00000
+
+        
+        // Switch on red (for standby)
+        BLUE = 0;
+0EE4  9A80      	BCF gbl_porta,5
+
+        GREEN = 0;
+0EE6  9880      	BCF gbl_porta,4
+
+        RED = 1;
+0EE8  8680      	BSF gbl_porta,3
+
+    } else if (DC_FAIL) {
+0EEC  A481      	BTFSS gbl_portb,2
+
+        // Power on sequence - v2.0 only runs if there is no DC failure present
+        POWEROUT = 1; // Power on amps
+0EF0  8080      	BSF gbl_porta,0
+
+                
+        // Switch on green (for muted)
+        BLUE = 0;
+0EF2  9A80      	BCF gbl_porta,5
+
+        GREEN = 1;
+0EF4  8880      	BSF gbl_porta,4
+
+        RED = 0;
+0EF6  9680      	BCF gbl_porta,3
+
+        
+        writeVolumes(); // Ensure volume level is sent out (this will also colour the LED)
+0EF8  ECDDF001  	CALL writeVolum_0001E
+
+        
+        ledOn();
+0EFC  ECC0F003  	CALL ledOn_00000
+
+        ledPrint(1, "HELLO");
+0F00  0E01      	MOVLW 0x01
+0F02  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0F04  0E48      	MOVLW 0x48
+0F06  6F9C      	MOVWF CompTempVar616, 1
+0F08  0E45      	MOVLW 0x45
+0F0A  6F9D      	MOVWF CompTempVar616+D'1', 1
+0F0C  0E4C      	MOVLW 0x4C
+0F0E  6F9E      	MOVWF CompTempVar616+D'2', 1
+0F10  6F9F      	MOVWF CompTempVar616+D'3', 1
+0F12  0E4F      	MOVLW 0x4F
+0F14  6FA0      	MOVWF CompTempVar616+D'4', 1
+0F16  6BA1      	CLRF CompTempVar616+D'5', 1
+0F18  0E00      	MOVLW HIGH(CompTempVar616+D'0')
+0F1A  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0F1C  0E9C      	MOVLW LOW(CompTempVar616+D'0')
+0F1E  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0F20  EC81F000  	CALL ledPrint_00000
+
+        ledPrint(2, "");
+0F24  0E02      	MOVLW 0x02
+0F26  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0F28  6B95      	CLRF CompTempVar618, 1
+0F2A  0E00      	MOVLW HIGH(CompTempVar618+D'0')
+0F2C  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0F2E  0E95      	MOVLW LOW(CompTempVar618+D'0')
+0F30  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0F32  EC81F000  	CALL ledPrint_00000
+
+        ledWrite();
+0F36  EC58F000  	CALL ledWrite_00000
+
+    
+        iPower = 1;
+0F3A  0E01      	MOVLW 0x01
+0F3C  6F7C      	MOVWF gbl_iPower, 1
+
+        // Write relay (disables or enables relays if powered)
+        // V2.2 - moved here so that triggers are enable immediately instead of after the delay
+        writeRelay();
+0F3E  EC89F002  	CALL writeRelay_00000
+
+
+        // Delay mute
+        // Flash Green/Blue for 5.4 seconds
+        char l;
+        for (l=0; l<27; l++) {
+0F42  6B94      	CLRF doPower_00000_51_l, 1
+0F44            label151
+0F44  0E1B      	MOVLW 0x1B
+0F46  6194      	CPFSLT doPower_00000_51_l, 1
+0F48  D00E      	BRA	label152
+0F62  2B94      	INCF doPower_00000_51_l, F, 1
+0F64  D7EF      	BRA	label151
+0F66            label152
+
+            // Green off, blue on
+            BLUE = 1;
+0F4A  8A80      	BSF gbl_porta,5
+
+            GREEN = 0;
+0F4C  9880      	BCF gbl_porta,4
+
+            DELAY_SHORT;
+0F4E  0E64      	MOVLW 0x64
+0F50  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0F52  EC10F000  	CALL delay_ms_00000
+
+            // Blue off, green on
+            BLUE = 0;
+0F56  9A80      	BCF gbl_porta,5
+
+            GREEN = 1;
+0F58  8880      	BSF gbl_porta,4
+
+            DELAY_SHORT;
+0F5A  0E64      	MOVLW 0x64
+0F5C  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0F5E  EC10F000  	CALL delay_ms_00000
+
+        }
+        
+        showInput();
+0F66  EC45F003  	CALL showInput_00000
+
+        showVolume();
+0F6A  ECCCF002  	CALL showVolume_00000
+
+        ledWrite();
+0F6E  EC58F000  	CALL ledWrite_00000
+
+    
+        // Check for DC failure
+        if (!DC_FAIL) {
+0F72  B481      	BTFSC gbl_portb,2
+0F74  D004      	BRA	label153
+0F7E            label153
+
+            showFault(); // Show that a fault has occured
+0F76  ECA7F003  	CALL showFault_00000
+
+            iPower = 0;
+0F7A  6B7C      	CLRF gbl_iPower, 1
+
+        } else {
+0F7C  D001      	BRA	label154
+0F80            label154
+
+            // Only unmute amps if no fault
+            MUTEOUT = 1; // Unmute amps
+0F7E  8280      	BSF gbl_porta,1
+
+        }
+        
+        // Enable timer 1
+        t1con.TMR1ON = 1;
+0F80  80CD      	BSF gbl_t1con,0
+
+    }
+}
+0EEA  0012      	RETURN
+0EEE  0012      	RETURN
+0F82  0012      	RETURN
+
+
+void doVolumeUp() {
+
+    // Increase level
+    if (iVolume < 255) { // Don't process if volume is 255 or power is off
+0E1E  0EFF      	MOVLW 0xFF
+0E20  0100      	MOVLB 0x00
+0E22  6173      	CPFSLT gbl_iVolume, 1
+
+        // Increase level
+        char iNewVol = iVolume + 2; // Increment by larger step for IR command VolumeUp
+0E26  0E02      	MOVLW 0x02
+0E28  2573      	ADDWF gbl_iVolume, W, 1
+0E2A  6F94      	MOVWF doVolumeUp_00000_2_iNewVol, 1
+
+        if (iNewVol < iVolume)
+0E2C  5173      	MOVF gbl_iVolume, W, 1
+0E2E  6194      	CPFSLT doVolumeUp_00000_2_iNewVol, 1
+0E30  D001      	BRA	label148
+0E34            label148
+
+            iNewVol = 255;
+0E32  6994      	SETF doVolumeUp_00000_2_iNewVol, 1
+
+        iVolume = iNewVol;
+0E34  5194      	MOVF doVolumeUp_00000_2_iNewVol, W, 1
+0E36  6F73      	MOVWF gbl_iVolume, 1
+
+        writeVolumes();
+0E38  ECDDF001  	CALL writeVolum_0001E
+
+    }
+}
+0E24  0012      	RETURN
+0E3C  0012      	RETURN
+
+
+void doVolumeDown() {
+
+    // Decrease level
+    if (iVolume > 0) { // Don't process if volume is 0 or power is off
+0E3E  0E00      	MOVLW 0x00
+0E40  0100      	MOVLB 0x00
+0E42  6573      	CPFSGT gbl_iVolume, 1
+
+        // Increase level
+        char iNewVol = iVolume - 2; // Increment by larger step for IR command VolumeUp
+0E46  0E02      	MOVLW 0x02
+0E48  5D73      	SUBWF gbl_iVolume, W, 1
+0E4A  6F94      	MOVWF doVolumeDo_00029_2_iNewVol, 1
+
+        if (iNewVol > iVolume)
+0E4C  5194      	MOVF doVolumeDo_00029_2_iNewVol, W, 1
+0E4E  6173      	CPFSLT gbl_iVolume, 1
+0E50  D001      	BRA	label149
+0E54            label149
+
+            iNewVol = 0;
+0E52  6B94      	CLRF doVolumeDo_00029_2_iNewVol, 1
+
+        iVolume = iNewVol;
+0E54  5194      	MOVF doVolumeDo_00029_2_iNewVol, W, 1
+0E56  6F73      	MOVWF gbl_iVolume, 1
+
+        writeVolumes();
+0E58  ECDDF001  	CALL writeVolum_0001E
+
+    }
+}
+0E44  0012      	RETURN
+0E5C  0012      	RETURN
+
+
+void doMute() {
+
+    iMute = !iMute;
+126A  0100      	MOVLB 0x00
+126C  6B93      	CLRF CompTempVar668, 1
+126E  5374      	MOVF gbl_iMute, F, 1
+1270  B4D8      	BTFSC STATUS,Z
+1272  2B93      	INCF CompTempVar668, F, 1
+1274  5193      	MOVF CompTempVar668, W, 1
+1276  6F74      	MOVWF gbl_iMute, 1
+
+    writeVolumes();
+1278  ECDDF001  	CALL writeVolum_0001E
+
+}
+127C  0012      	RETURN
+
+
+
+/******************************************************
+  Function to print the current volume to the LED display
+*******************************************************/
+void showVolume() {
+
+    int iModulus = 0;
+0598  0100      	MOVLB 0x00
+059A  6B95      	CLRF showVolume_00000_1_iModulus, 1
+059C  6B96      	CLRF showVolume_00000_1_iModulus+D'1', 1
+
+    char cGain = 95; // Gain level -95.5db - +31.5dB
+059E  0E5F      	MOVLW 0x5F
+05A0  6F97      	MOVWF showVolume_00000_1_cGain, 1
+
+    char cGainDecimalPoint = 0; // Gain decimal - either 0 or 5
+05A2  6B98      	CLRF showVolume_00000_1_cGainDe_0001F, 1
+
+
+    ledData2[0] = 0;
+05A4  6B68      	CLRF gbl_ledData2, 1
+
+    ledData2[1] = 0;
+05A6  6B69      	CLRF gbl_ledData2+D'1', 1
+
+    if (iMute) {
+05A8  5374      	MOVF gbl_iMute, F, 1
+05AA  E003      	BZ	label62
+05B2            label62
+
+        printMute(); // Sound off
+05AC  EC03F001  	CALL printMute_00000
+
+    } else {
+05B0  D062      	BRA	label72
+0676            label72
+
+        ledCurrentLine = 2;
+05B2  0E02      	MOVLW 0x02
+05B4  6F86      	MOVWF gbl_ledCurrentLine, 1
+
+        if (iVolume == 192) {
+05B6  0EC0      	MOVLW 0xC0
+05B8  6373      	CPFSEQ gbl_iVolume, 1
+05BA  D002      	BRA	label63
+05C0            label63
+
+            // Gain is 0dB
+            cGain = 0;
+05BC  6B97      	CLRF showVolume_00000_1_cGain, 1
+
+        } else if (iVolume > 192) {
+05BE  D01E      	BRA	label65
+05C0  0EC0      	MOVLW 0xC0
+05C2  6573      	CPFSGT gbl_iVolume, 1
+05C4  D009      	BRA	label64
+05D8            label64
+
+            // Gain is postive
+            cGain = 31 - ((255-iVolume) / 2);
+05C6  5173      	MOVF gbl_iVolume, W, 1
+05C8  08FF      	SUBLW 0xFF
+05CA  6F9B      	MOVWF CompTempVar662, 1
+05CC  90D8      	BCF STATUS,C
+05CE  339B      	RRCF CompTempVar662, F, 1
+05D0  519B      	MOVF CompTempVar662, W, 1
+05D2  081F      	SUBLW 0x1F
+05D4  6F97      	MOVWF showVolume_00000_1_cGain, 1
+
+        } else if (iVolume < 192) {
+05D6  D012      	BRA	label65
+05D8  0EC0      	MOVLW 0xC0
+05DA  6173      	CPFSLT gbl_iVolume, 1
+05DC  D00F      	BRA	label65
+05FC            label65
+
+            // Gain is negative
+            cGain = ((254-iVolume) / 2) - 31;
+05DE  5173      	MOVF gbl_iVolume, W, 1
+05E0  08FE      	SUBLW 0xFE
+05E2  6F9B      	MOVWF CompTempVar664, 1
+05E4  90D8      	BCF STATUS,C
+05E6  339B      	RRCF CompTempVar664, F, 1
+05E8  0E1F      	MOVLW 0x1F
+05EA  5D9B      	SUBWF CompTempVar664, W, 1
+05EC  6F97      	MOVWF showVolume_00000_1_cGain, 1
+
+            ledCurrentCol = 1;
+05EE  0E01      	MOVLW 0x01
+05F0  6F87      	MOVWF gbl_ledCurrentCol, 1
+
+            ledChar('-', 0);
+05F2  0E2D      	MOVLW 0x2D
+05F4  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+05F6  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+05F8  ECE0F000  	CALL ledChar_00000
+
+        }
+        // Gain decimal - if volume is an odd number (test the last bit), it's 0.5dB
+        // V3.0 made this more efficient
+        if (iVolume.0 == 1)
+05FC  A173      	BTFSS gbl_iVolume,0, 1
+05FE  D002      	BRA	label66
+0604            label66
+
+            cGainDecimalPoint = 5;
+0600  0E05      	MOVLW 0x05
+0602  6F98      	MOVWF showVolume_00000_1_cGainDe_0001F, 1
+
+        
+        // V3.0 made this more efficient
+        // Work out each digit
+        // less program memory needed - may be slower executing
+        // https://electronics.stackexchange.com/questions/158563/how-to-split-a-floating-point-number-into-individual-digits
+        char cDig1 = 0;
+0604  6B99      	CLRF showVolume_00000_7_cDig1, 1
+
+        char cDig0 = 0;
+0606  6B9A      	CLRF showVolume_00000_7_cDig0, 1
+
+        // incrementing variables for each digit
+        // determine to tens digit
+        while (cGain >= 10) {
+0608            label67
+0608  0E0A      	MOVLW 0x0A
+060A  6197      	CPFSLT showVolume_00000_1_cGain, 1
+060C  D001      	BRA	label68
+060E  D005      	BRA	label69
+0610            label68
+0618  D7F7      	BRA	label67
+061A            label69
+
+            cGain = cGain - 10;
+0610  0E0A      	MOVLW 0x0A
+0612  5D97      	SUBWF showVolume_00000_1_cGain, W, 1
+0614  6F97      	MOVWF showVolume_00000_1_cGain, 1
+
+            // each time we take off 10, the left most digit is incremented
+            cDig1++;
+0616  2B99      	INCF showVolume_00000_7_cDig1, F, 1
+
+        }
+        // the last digit is what's left on iValue
+        cDig0 = cGain;
+061A  5197      	MOVF showVolume_00000_1_cGain, W, 1
+061C  6F9A      	MOVWF showVolume_00000_7_cDig0, 1
+
+        
+        // add 48 for ASCII equilvalent (48 = 0)
+        // 1st digit in number
+        ledCurrentCol = 2;
+061E  0E02      	MOVLW 0x02
+0620  6F87      	MOVWF gbl_ledCurrentCol, 1
+
+        if (cDig1 == 0)
+0622  5399      	MOVF showVolume_00000_7_cDig1, F, 1
+0624  E106      	BNZ	label70
+0632            label70
+
+            ledChar(' ', 0);
+0626  0E20      	MOVLW 0x20
+0628  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+062A  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+062C  ECE0F000  	CALL ledChar_00000
+
+        else
+0630  D006      	BRA	label71
+063E            label71
+
+            ledChar(cDig1 + 48, 0);
+0632  0E30      	MOVLW 0x30
+0634  2599      	ADDWF showVolume_00000_7_cDig1, W, 1
+0636  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0638  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+063A  ECE0F000  	CALL ledChar_00000
+
+        // 2nd digit in number + added decimal point
+        ledChar(cDig0 + 48, 1);
+063E  0E30      	MOVLW 0x30
+0640  259A      	ADDWF showVolume_00000_7_cDig0, W, 1
+0642  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0644  0E01      	MOVLW 0x01
+0646  6F9C      	MOVWF ledChar_00000_arg_iHasDot, 1
+0648  ECE0F000  	CALL ledChar_00000
+
+        
+        // Decimal number
+        ledChar(cGainDecimalPoint + 48, 0);
+064C  0E30      	MOVLW 0x30
+064E  2598      	ADDWF showVolume_00000_1_cGainDe_0001F, W, 1
+0650  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0652  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0654  ECE0F000  	CALL ledChar_00000
+
+        ledChar(' ', 0);
+0658  0E20      	MOVLW 0x20
+065A  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+065C  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+065E  ECE0F000  	CALL ledChar_00000
+
+        ledChar('d', 0);
+0662  0E64      	MOVLW 0x64
+0664  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0666  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0668  ECE0F000  	CALL ledChar_00000
+
+        ledChar('b', 0);
+066C  0E62      	MOVLW 0x62
+066E  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0670  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0672  ECE0F000  	CALL ledChar_00000
+
+    }
+    
+    // Display green LED if volume is 0 (effectively mute) or mute is on
+    if ((iVolume == 0) || (iMute == 1)) {
+0676  5373      	MOVF gbl_iVolume, F, 1
+0678  E002      	BZ	label73
+067A  0574      	DECF gbl_iMute, W, 1
+067C  E103      	BNZ	label74
+067E            label73
+0684            label74
+
+        // Green on, blue off
+        BLUE = 0;
+067E  9A80      	BCF gbl_porta,5
+
+        GREEN = 1;
+0680  8880      	BSF gbl_porta,4
+
+    } else {
+        // Green off, blue on
+        BLUE = 1;
+0684  8A80      	BSF gbl_porta,5
+
+        GREEN = 0;
+0686  9880      	BCF gbl_porta,4
+
+    }
+}
+0682  0012      	RETURN
+0688  0012      	RETURN
+
+
+/******************************************************
+  Function to print the current input to the LED display
+*******************************************************/
+void showInput() { 
+
+	// 0 = Front, 1 = Input 1, 2 = Input 2, 3 = Input 3, 4 = Input 4, 5 = Input 5
+    switch (iActiveInput) {
+
+        case 0:
+068A  0100      	MOVLB 0x00
+068C  537E      	MOVF gbl_iActiveInput, F, 1
+068E  E00A      	BZ	label76
+06A4            label76
+
+            //ledPrint(1, "PC"); // Media Centre PC
+            ledPrint(1, "TELE 51"); // 5.1 Input
+06A4  0E01      	MOVLW 0x01
+06A6  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+06A8  0E20      	MOVLW 0x20
+06AA  6FA0      	MOVWF CompTempVar651+D'4', 1
+06AC  0E31      	MOVLW 0x31
+06AE  6FA2      	MOVWF CompTempVar651+D'6', 1
+06B0  0E35      	MOVLW 0x35
+06B2  6FA1      	MOVWF CompTempVar651+D'5', 1
+06B4  0E45      	MOVLW 0x45
+06B6  6F9D      	MOVWF CompTempVar651+D'1', 1
+06B8  6F9F      	MOVWF CompTempVar651+D'3', 1
+06BA  0E4C      	MOVLW 0x4C
+06BC  6F9E      	MOVWF CompTempVar651+D'2', 1
+06BE  0E54      	MOVLW 0x54
+06C0  6F9C      	MOVWF CompTempVar651, 1
+06C2  6BA3      	CLRF CompTempVar651+D'7', 1
+06C4  0E00      	MOVLW HIGH(CompTempVar651+D'0')
+06C6  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+06C8  0E9C      	MOVLW LOW(CompTempVar651+D'0')
+06CA  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+06CC  EC81F000  	CALL ledPrint_00000
+
+            //ledPrint(1, "CinE 51"); // 5.1 Input
+            ledData1[5] = 0xDB; // 5 with dot
+06D0  0EDB      	MOVLW 0xDB
+06D2  6F65      	MOVWF gbl_ledData1+D'5', 1
+
+            break;
+        case 1:
+0690  057E      	DECF gbl_iActiveInput, W, 1
+0692  E021      	BZ	label77
+06D6            label77
+
+            ledPrint(1, "Chr Cast"); // Chromecast
+06D6  0E01      	MOVLW 0x01
+06D8  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+06DA  0E20      	MOVLW 0x20
+06DC  6F9F      	MOVWF CompTempVar654+D'3', 1
+06DE  0E43      	MOVLW 0x43
+06E0  6F9C      	MOVWF CompTempVar654, 1
+06E2  6FA0      	MOVWF CompTempVar654+D'4', 1
+06E4  0E61      	MOVLW 0x61
+06E6  6FA1      	MOVWF CompTempVar654+D'5', 1
+06E8  0E68      	MOVLW 0x68
+06EA  6F9D      	MOVWF CompTempVar654+D'1', 1
+06EC  0E72      	MOVLW 0x72
+06EE  6F9E      	MOVWF CompTempVar654+D'2', 1
+06F0  0E73      	MOVLW 0x73
+06F2  6FA2      	MOVWF CompTempVar654+D'6', 1
+06F4  0E74      	MOVLW 0x74
+06F6  6FA3      	MOVWF CompTempVar654+D'7', 1
+06F8  6BA4      	CLRF CompTempVar654+D'8', 1
+06FA  0E00      	MOVLW HIGH(CompTempVar654+D'0')
+06FC  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+06FE  0E9C      	MOVLW LOW(CompTempVar654+D'0')
+0700  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0702  EC81F000  	CALL ledPrint_00000
+
+            break;
+        case 2:
+0694  0E02      	MOVLW 0x02
+0696  637E      	CPFSEQ gbl_iActiveInput, 1
+0698  D001      	BRA	label75
+069A  D036      	BRA	label78
+069C            label75
+0708            label78
+
+            ledPrint(1, "Phono"); // Phono
+0708  0E01      	MOVLW 0x01
+070A  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+070C  0E50      	MOVLW 0x50
+070E  6F9C      	MOVWF CompTempVar656, 1
+0710  0E68      	MOVLW 0x68
+0712  6F9D      	MOVWF CompTempVar656+D'1', 1
+0714  0E6E      	MOVLW 0x6E
+0716  6F9F      	MOVWF CompTempVar656+D'3', 1
+0718  0E6F      	MOVLW 0x6F
+071A  6F9E      	MOVWF CompTempVar656+D'2', 1
+071C  6FA0      	MOVWF CompTempVar656+D'4', 1
+071E  6BA1      	CLRF CompTempVar656+D'5', 1
+0720  0E00      	MOVLW HIGH(CompTempVar656+D'0')
+0722  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0724  0E9C      	MOVLW LOW(CompTempVar656+D'0')
+0726  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0728  EC81F000  	CALL ledPrint_00000
+
+            break;
+        case 3:
+069C  0E03      	MOVLW 0x03
+069E  637E      	CPFSEQ gbl_iActiveInput, 1
+06A2  D045      	BRA	label79
+072E            label79
+
+            ledPrint(1, "ALt"); // Auxiliary Input
+072E  0E01      	MOVLW 0x01
+0730  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0732  0E41      	MOVLW 0x41
+0734  6F9C      	MOVWF CompTempVar658, 1
+0736  0E4C      	MOVLW 0x4C
+0738  6F9D      	MOVWF CompTempVar658+D'1', 1
+073A  0E74      	MOVLW 0x74
+073C  6F9E      	MOVWF CompTempVar658+D'2', 1
+073E  6B9F      	CLRF CompTempVar658+D'3', 1
+0740  0E00      	MOVLW HIGH(CompTempVar658+D'0')
+0742  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0744  0E9C      	MOVLW LOW(CompTempVar658+D'0')
+0746  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0748  EC81F000  	CALL ledPrint_00000
+
+            break;
+    }
+}
+06A0  0012      	RETURN
+06D4  0012      	RETURN
+0706  0012      	RETURN
+072C  0012      	RETURN
+074C  0012      	RETURN
+
+
+void showFault() {
+
+    ledPrint(1, "FAULt"); // Show fault
+074E  0E01      	MOVLW 0x01
+0750  0100      	MOVLB 0x00
+0752  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0754  0E46      	MOVLW 0x46
+0756  6F9C      	MOVWF CompTempVar666, 1
+0758  0E41      	MOVLW 0x41
+075A  6F9D      	MOVWF CompTempVar666+D'1', 1
+075C  0E55      	MOVLW 0x55
+075E  6F9E      	MOVWF CompTempVar666+D'2', 1
+0760  0E4C      	MOVLW 0x4C
+0762  6F9F      	MOVWF CompTempVar666+D'3', 1
+0764  0E74      	MOVLW 0x74
+0766  6FA0      	MOVWF CompTempVar666+D'4', 1
+0768  6BA1      	CLRF CompTempVar666+D'5', 1
+076A  0E00      	MOVLW HIGH(CompTempVar666+D'0')
+076C  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+076E  0E9C      	MOVLW LOW(CompTempVar666+D'0')
+0770  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0772  EC81F000  	CALL ledPrint_00000
+
+    printMute();
+0776  EC03F001  	CALL printMute_00000
+
+    RED = 1;
+077A  8680      	BSF gbl_porta,3
+
+    BLUE = 0;
+077C  9A80      	BCF gbl_porta,5
+
+}
+077E  0012      	RETURN
+
+
+void printMute() {
+
+    ledPrint(2, "Snd OFF");
+0206  0E02      	MOVLW 0x02
+0208  0100      	MOVLB 0x00
+020A  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+020C  0E53      	MOVLW 0x53
+020E  6F9C      	MOVWF CompTempVar610, 1
+0210  0E6E      	MOVLW 0x6E
+0212  6F9D      	MOVWF CompTempVar610+D'1', 1
+0214  0E64      	MOVLW 0x64
+0216  6F9E      	MOVWF CompTempVar610+D'2', 1
+0218  0E20      	MOVLW 0x20
+021A  6F9F      	MOVWF CompTempVar610+D'3', 1
+021C  0E4F      	MOVLW 0x4F
+021E  6FA0      	MOVWF CompTempVar610+D'4', 1
+0220  0E46      	MOVLW 0x46
+0222  6FA1      	MOVWF CompTempVar610+D'5', 1
+0224  6FA2      	MOVWF CompTempVar610+D'6', 1
+0226  6BA3      	CLRF CompTempVar610+D'7', 1
+0228  0E00      	MOVLW HIGH(CompTempVar610+D'0')
+022A  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+022C  0E9C      	MOVLW LOW(CompTempVar610+D'0')
+022E  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0230  EC81F000  	CALL ledPrint_00000
+
+    ledWrite();
+0234  EC58F000  	CALL ledWrite_00000
+
+}
+0238  0012      	RETURN
+
+
+/******************************************************
+  Apply relay selection to the 74HCT595 shift register
+*******************************************************/
+void writeRelay() {
+
+    char iRelay = 0; // initialised empty
+0512  0100      	MOVLB 0x00
+0514  6B95      	CLRF writeRelay_00000_1_iRelay, 1
+
+
+    // V2.0 changed outputs
+    // TRG 1 = 00000001  0x01
+    // TRG 2 = 00000010  0x02
+    // INP 1 = 00000100  0x04
+    // INP 2 = 00001000  0x08
+    // INP 3 = 00010000  0x10
+    // INP 0 = 00100000  0x20
+    // SUR M = 01000000  0x40
+
+    // Set surround mode relay if Active Input is 0 and ExtSurround is on
+    if (iExtSurroundMode && (iActiveInput == 0)) {
+0516  5381      	MOVF gbl_iExtSurroundMode, F, 1
+0518  E006      	BZ	label49
+051A  537E      	MOVF gbl_iActiveInput, F, 1
+051C  E104      	BNZ	label49
+0526            label49
+
+        // Set bit 7
+        iRelay = ((iRelay & 0xBF) + 0x40);
+051E  0EBF      	MOVLW 0xBF
+0520  1795      	ANDWF writeRelay_00000_1_iRelay, F, 1
+0522  0E40      	MOVLW 0x40
+0524  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+    }
+
+    // Write selected input to input byte
+    switch (iActiveInput) {
+0564            label55
+
+        // For each input, take the existing selected and logic AND with 0x43 (01000011) so the status 
+        // of the power and surround switch remains. Then add the representation of the input 
+        case 0:
+0526  537E      	MOVF gbl_iActiveInput, F, 1
+0528  E00A      	BZ	label51
+053E            label51
+
+            // Clear bits 2 to 5, Set bit 5, 
+            iRelay = ((iRelay & 0x43) + 0x20);
+053E  0E43      	MOVLW 0x43
+0540  1795      	ANDWF writeRelay_00000_1_iRelay, F, 1
+0542  0E20      	MOVLW 0x20
+0544  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+            break;
+0546  D00E      	BRA	label55
+
+        case 1:
+052A  057E      	DECF gbl_iActiveInput, W, 1
+052C  E00D      	BZ	label52
+0548            label52
+
+            // Clear bits 2 to 5, Set bit 2, 
+            iRelay = ((iRelay & 0x43) + 0x04);
+0548  0E43      	MOVLW 0x43
+054A  1795      	ANDWF writeRelay_00000_1_iRelay, F, 1
+054C  0E04      	MOVLW 0x04
+054E  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+            break;
+0550  D009      	BRA	label55
+
+        case 2:
+052E  0E02      	MOVLW 0x02
+0530  637E      	CPFSEQ gbl_iActiveInput, 1
+0532  D001      	BRA	label50
+0534  D00E      	BRA	label53
+0536            label50
+053C  D00F      	BRA	label54
+0552            label53
+
+            // Clear bits 2 to 5, Set bit 3, 
+            iRelay = ((iRelay & 0x43) + 0x08);
+0552  0E43      	MOVLW 0x43
+0554  1795      	ANDWF writeRelay_00000_1_iRelay, F, 1
+0556  0E08      	MOVLW 0x08
+0558  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+            break;
+055A  D004      	BRA	label55
+
+        case 3:
+0536  0E03      	MOVLW 0x03
+0538  637E      	CPFSEQ gbl_iActiveInput, 1
+053A  D014      	BRA	label55
+055C            label54
+
+            // Clear bits 2 to 5, Set bit 4, 
+            iRelay = ((iRelay & 0x43) + 0x10);
+055C  0E43      	MOVLW 0x43
+055E  1795      	ANDWF writeRelay_00000_1_iRelay, F, 1
+0560  0E10      	MOVLW 0x10
+0562  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+            break;
+    }
+    
+    if (iTrigger <= 3)
+0564  517F      	MOVF gbl_iTrigger, W, 1
+0566  0803      	SUBLW 0x03
+0568  E302      	BNC	label56
+056E            label56
+
+        iRelay += iTrigger;
+056A  517F      	MOVF gbl_iTrigger, W, 1
+056C  2795      	ADDWF writeRelay_00000_1_iRelay, F, 1
+
+    
+    // v1.1 if power is off, disable all relays (to reduce standby current) and triggers
+    if (!iPower)
+056E  677C      	TSTFSZ gbl_iPower, 1
+0570  D001      	BRA	label57
+0574            label57
+
+        iRelay = 0;
+0572  6B95      	CLRF writeRelay_00000_1_iRelay, 1
+
+    
+    // Lower latch
+    RELAYLATCH = 0;
+0574  9484      	BCF gbl_porte,2
+
+
+    for (char cBitSelect = 0x01; cBitSelect; cBitSelect <<= 1) {
+0576  0E01      	MOVLW 0x01
+0578  6F96      	MOVWF writeRelay_00000_2_cBitSelect, 1
+057A            label58
+057A  5396      	MOVF writeRelay_00000_2_cBitSelect, F, 1
+057C  E00B      	BZ	label61
+058E  90D8      	BCF STATUS,C
+0590  3796      	RLCF writeRelay_00000_2_cBitSelect, F, 1
+0592  D7F3      	BRA	label58
+0594            label61
+
+        if (iRelay & cBitSelect)
+057E  5196      	MOVF writeRelay_00000_2_cBitSelect, W, 1
+0580  1595      	ANDWF writeRelay_00000_1_iRelay, W, 1
+0582  E002      	BZ	label59
+0588            label59
+
+            RELAYDATA = 1; // Serial data output high
+0584  8084      	BSF gbl_porte,0
+
+        else
+0586  D001      	BRA	label60
+058A            label60
+
+            RELAYDATA = 0;
+0588  9084      	BCF gbl_porte,0
+
+
+        RELAYCLOCK = 1; // Clock set high, so bit is loaded onto the shift register
+058A  8284      	BSF gbl_porte,1
+
+        RELAYCLOCK = 0; // Clock cleared
+058C  9284      	BCF gbl_porte,1
+
+    }
+
+    // Load the new register
+    RELAYLATCH = 1; // Set the latch to high so contents of shift register are put on the parallel output
+0594  8484      	BSF gbl_porte,2
+
+}
+0596  0012      	RETURN
+
+
+void doInputDown() {
+
+    // Decrement the active input
+    iActiveInput--;
+0F98  0100      	MOVLB 0x00
+0F9A  077E      	DECF gbl_iActiveInput, F, 1
+
+    if (iActiveInput > 4) // If overflowed (less than 0) was 5
+0F9C  0E04      	MOVLW 0x04
+0F9E  657E      	CPFSGT gbl_iActiveInput, 1
+0FA0  D002      	BRA	label157
+0FA6            label157
+
+        iActiveInput = 3; // was 4
+0FA2  0E03      	MOVLW 0x03
+0FA4  6F7E      	MOVWF gbl_iActiveInput, 1
+
+    writeRelay();
+0FA6  EC89F002  	CALL writeRelay_00000
+
+}
+0FAA  0012      	RETURN
+
+
+void doInputUp() {
+
+    // Increment the active input
+    iActiveInput++;
+0F84  0100      	MOVLB 0x00
+0F86  2B7E      	INCF gbl_iActiveInput, F, 1
+
+    if (iActiveInput >= 4) // was 5
+0F88  0E04      	MOVLW 0x04
+0F8A  617E      	CPFSLT gbl_iActiveInput, 1
+0F8C  D001      	BRA	label155
+0F8E  D001      	BRA	label156
+0F90            label155
+0F92            label156
+
+        iActiveInput = 0;
+0F90  6B7E      	CLRF gbl_iActiveInput, 1
+
+    writeRelay();
+0F92  EC89F002  	CALL writeRelay_00000
+
+}
+0F96  0012      	RETURN
+
+
+/******************************************************
+  Apply volume levels (6 channels) to PGA2310 chips
+*******************************************************/
+void writeVolumes() {
+
+    char n; // Loop counter
+    char byteVolume[6] = {0,0,0,0,0,0};
+03BA  0100      	MOVLB 0x00
+03BC  6B96      	CLRF writeVolum_0001E_1_byteVolume, 1
+03BE  6B97      	CLRF writeVolum_0001E_1_byteVolume+D'1', 1
+03C0  6B98      	CLRF writeVolum_0001E_1_byteVolume+D'2', 1
+03C2  6B99      	CLRF writeVolum_0001E_1_byteVolume+D'3', 1
+03C4  6B9A      	CLRF writeVolum_0001E_1_byteVolume+D'4', 1
+03C6  6B9B      	CLRF writeVolum_0001E_1_byteVolume+D'5', 1
+
+    
+    // Set front levels based on balance setting
+    if (iFrontBalance == 0) {
+03C8  5377      	MOVF gbl_iFrontBalance, F, 1
+03CA  E105      	BNZ	label30
+03D6            label30
+
+        byteVolume[4] = iVolume; // Right balance adjust (reduce left channel)
+03CC  5173      	MOVF gbl_iVolume, W, 1
+03CE  6F9A      	MOVWF writeVolum_0001E_1_byteVolume+D'4', 1
+
+        byteVolume[5] = iVolume; // Set other channel to volume level
+03D0  5173      	MOVF gbl_iVolume, W, 1
+03D2  6F9B      	MOVWF writeVolum_0001E_1_byteVolume+D'5', 1
+
+    } else if (iFrontBalance > 0) {
+03D4  D018      	BRA	label32
+03D6  0E00      	MOVLW 0x00
+03D8  BF77      	BTFSC gbl_iFrontBalance,7, 1
+03DA  D00D      	BRA	label31
+03DC  6577      	CPFSGT gbl_iFrontBalance, 1
+03DE  D00B      	BRA	label31
+03F6            label31
+
+        byteVolume[4] = getAdjustedVolume(iFrontBalance * -1); // Right balance adjust (reduce left channel)
+03E0  0EFF      	MOVLW 0xFF
+03E2  0377      	MULWF gbl_iFrontBalance, 1
+03E4  50F3      	MOVF PRODL, W
+03E6  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+03E8  EC59F001  	CALL getAdjuste_00021
+03EC  519E      	MOVF CompTempVarRet669, W, 1
+03EE  6F9A      	MOVWF writeVolum_0001E_1_byteVolume+D'4', 1
+
+        byteVolume[5] = iVolume; // Set other channel to volume level
+03F0  5173      	MOVF gbl_iVolume, W, 1
+03F2  6F9B      	MOVWF writeVolum_0001E_1_byteVolume+D'5', 1
+
+    } else {
+03F4  D008      	BRA	label32
+0406            label32
+
+        byteVolume[5] = getAdjustedVolume(iFrontBalance); // Left balance adjust (reduce right channel)
+03F6  5177      	MOVF gbl_iFrontBalance, W, 1
+03F8  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+03FA  EC59F001  	CALL getAdjuste_00021
+03FE  519E      	MOVF CompTempVarRet669, W, 1
+0400  6F9B      	MOVWF writeVolum_0001E_1_byteVolume+D'5', 1
+
+        byteVolume[4] = iVolume; // Set other channel to volume level
+0402  5173      	MOVF gbl_iVolume, W, 1
+0404  6F9A      	MOVWF writeVolum_0001E_1_byteVolume+D'4', 1
+
+    }
+
+    // Set rear levels based on balance setting and adjustment
+    if (iRearBalance == 0) {
+0406  5378      	MOVF gbl_iRearBalance, F, 1
+0408  E10D      	BNZ	label33
+0424            label33
+
+        byteVolume[2] = getAdjustedVolume(iRearAdjust); // Rear level adjust
+040A  5179      	MOVF gbl_iRearAdjust, W, 1
+040C  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+040E  EC59F001  	CALL getAdjuste_00021
+0412  519E      	MOVF CompTempVarRet669, W, 1
+0414  6F98      	MOVWF writeVolum_0001E_1_byteVolume+D'2', 1
+
+        byteVolume[3] = getAdjustedVolume(iRearAdjust); // Rear level adjust
+0416  5179      	MOVF gbl_iRearAdjust, W, 1
+0418  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+041A  EC59F001  	CALL getAdjuste_00021
+041E  519E      	MOVF CompTempVarRet669, W, 1
+0420  6F99      	MOVWF writeVolum_0001E_1_byteVolume+D'3', 1
+
+    } else if (iRearBalance > 0) {
+0422  D029      	BRA	label35
+0424  0E00      	MOVLW 0x00
+0426  BF78      	BTFSC gbl_iRearBalance,7, 1
+0428  D019      	BRA	label34
+042A  6578      	CPFSGT gbl_iRearBalance, 1
+042C  D017      	BRA	label34
+045C            label34
+
+        byteVolume[2] = getAdjustedVolume((iRearBalance * -1) + iRearAdjust); // Right balance adjust (reduce left channel)
+042E  0EFF      	MOVLW 0xFF
+0430  0378      	MULWF gbl_iRearBalance, 1
+0432  50F3      	MOVF PRODL, W
+0434  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+0436  50F4      	MOVF PRODH, W
+0438  6F9D      	MOVWF CompTempVar642, 1
+043A  0EFF      	MOVLW 0xFF
+043C  0378      	MULWF gbl_iRearBalance, 1
+043E  50F3      	MOVF PRODL, W
+0440  279D      	ADDWF CompTempVar642, F, 1
+0442  5179      	MOVF gbl_iRearAdjust, W, 1
+0444  279C      	ADDWF getAdjuste_00021_arg_iVolAdj, F, 1
+0446  EC59F001  	CALL getAdjuste_00021
+044A  519E      	MOVF CompTempVarRet669, W, 1
+044C  6F98      	MOVWF writeVolum_0001E_1_byteVolume+D'2', 1
+
+        byteVolume[3] = getAdjustedVolume(iRearAdjust); // Adjust other channel only
+044E  5179      	MOVF gbl_iRearAdjust, W, 1
+0450  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+0452  EC59F001  	CALL getAdjuste_00021
+0456  519E      	MOVF CompTempVarRet669, W, 1
+0458  6F99      	MOVWF writeVolum_0001E_1_byteVolume+D'3', 1
+
+    } else {
+045A  D00D      	BRA	label35
+0476            label35
+
+        byteVolume[3] = getAdjustedVolume(iRearBalance + iRearAdjust); // Left balance adjust (reduce right channel)
+045C  5179      	MOVF gbl_iRearAdjust, W, 1
+045E  2578      	ADDWF gbl_iRearBalance, W, 1
+0460  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+0462  EC59F001  	CALL getAdjuste_00021
+0466  519E      	MOVF CompTempVarRet669, W, 1
+0468  6F99      	MOVWF writeVolum_0001E_1_byteVolume+D'3', 1
+
+        byteVolume[2] = getAdjustedVolume(iRearAdjust); // Adjust other channel only
+046A  5179      	MOVF gbl_iRearAdjust, W, 1
+046C  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+046E  EC59F001  	CALL getAdjuste_00021
+0472  519E      	MOVF CompTempVarRet669, W, 1
+0474  6F98      	MOVWF writeVolum_0001E_1_byteVolume+D'2', 1
+
+    }
+
+    // Set centre and sub woofer levels based on each adjustment
+    byteVolume[1] = getAdjustedVolume(iCentreAdjust); // Centre level adjust
+0476  517A      	MOVF gbl_iCentreAdjust, W, 1
+0478  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+047A  EC59F001  	CALL getAdjuste_00021
+047E  519E      	MOVF CompTempVarRet669, W, 1
+0480  6F97      	MOVWF writeVolum_0001E_1_byteVolume+D'1', 1
+
+    byteVolume[0] = getAdjustedVolume(iSubAdjust);  // Sub level adjust
+0482  517B      	MOVF gbl_iSubAdjust, W, 1
+0484  6F9C      	MOVWF getAdjuste_00021_arg_iVolAdj, 1
+0486  EC59F001  	CALL getAdjuste_00021
+048A  519E      	MOVF CompTempVarRet669, W, 1
+048C  6F96      	MOVWF writeVolum_0001E_1_byteVolume, 1
+
+
+    // If set to stereo, clear first 4 bytes (rear l/r, centre, sub)
+    if (!iSurroundMode) {
+048E  6780      	TSTFSZ gbl_iSurroundMode, 1
+0490  D00D      	BRA	label37
+
+        for (char i = 0; i < 4; i++)
+0492  6B9C      	CLRF writeVolum_0001E_45_i, 1
+0494            label36
+0494  0E04      	MOVLW 0x04
+0496  619C      	CPFSLT writeVolum_0001E_45_i, 1
+0498  D009      	BRA	label37
+04A8  2B9C      	INCF writeVolum_0001E_45_i, F, 1
+04AA  D7F4      	BRA	label36
+04AC            label37
+
+            byteVolume[i] = 0;
+049A  EE00F096  	LFSR 0x00,  writeVolum_0001E_1_byteVolume
+049E  50E9      	MOVF FSR0L, W
+04A0  519C      	MOVF writeVolum_0001E_45_i, W, 1
+04A2  26E9      	ADDWF FSR0L, F
+04A4  0E00      	MOVLW 0x00
+04A6  6EEF      	MOVWF INDF0
+
+    }
+    // If muted (volume zero or iMute is 1), set all to zero regardless of levels
+    if ((iVolume == 0) || (iMute == 1)) {
+04AC  5373      	MOVF gbl_iVolume, F, 1
+04AE  E002      	BZ	label38
+04B0  0574      	DECF gbl_iMute, W, 1
+04B2  E110      	BNZ	label41
+04B4            label38
+04D4            label41
+
+        for (char i = 0; i < 6; i++)
+04B4  6B9C      	CLRF writeVolum_0001E_50_i, 1
+04B6            label39
+04B6  0E06      	MOVLW 0x06
+04B8  619C      	CPFSLT writeVolum_0001E_50_i, 1
+04BA  D009      	BRA	label40
+04CA  2B9C      	INCF writeVolum_0001E_50_i, F, 1
+04CC  D7F4      	BRA	label39
+04CE            label40
+
+            byteVolume[i] = 0;
+04BC  EE00F096  	LFSR 0x00,  writeVolum_0001E_1_byteVolume
+04C0  50E9      	MOVF FSR0L, W
+04C2  519C      	MOVF writeVolum_0001E_50_i, W, 1
+04C4  26E9      	ADDWF FSR0L, F
+04C6  0E00      	MOVLW 0x00
+04C8  6EEF      	MOVWF INDF0
+
+        // Display correct LED colour - green for muted
+        GREEN = 1;
+04CE  8880      	BSF gbl_porta,4
+
+        BLUE = 0;
+04D0  9A80      	BCF gbl_porta,5
+
+    } else {
+04D2  D002      	BRA	label42
+04D8            label42
+
+        // Blue for active
+        GREEN = 0;
+04D4  9880      	BCF gbl_porta,4
+
+        BLUE = 1;
+04D6  8A80      	BSF gbl_porta,5
+
+    }
+
+    // Set latch to low
+    VOLLATCH = 0;
+04D8  9482      	BCF gbl_portc,2
+
+
+    for (n = 0; n < 6; n++) { // 6 bytes to send
+04DA  6B95      	CLRF writeVolum_0001E_1_n, 1
+04DC            label43
+04DC  0E06      	MOVLW 0x06
+04DE  6195      	CPFSLT writeVolum_0001E_1_n, 1
+04E0  D016      	BRA	label48
+050A  2B95      	INCF writeVolum_0001E_1_n, F, 1
+050C  D7E7      	BRA	label43
+050E            label48
+
+        // MSB first
+        for (char cBitSelect = 0x80; cBitSelect; cBitSelect >>= 1) {
+04E2  0E80      	MOVLW 0x80
+04E4  6F9C      	MOVWF writeVolum_0001E_64_cBitSelect, 1
+04E6            label44
+04E6  539C      	MOVF writeVolum_0001E_64_cBitSelect, F, 1
+04E8  E010      	BZ	label47
+0504  90D8      	BCF STATUS,C
+0506  339C      	RRCF writeVolum_0001E_64_cBitSelect, F, 1
+0508  D7EE      	BRA	label44
+050A            label47
+
+            // Clear clock for next bit
+            VOLCLOCK = 0;
+04EA  9282      	BCF gbl_portc,1
+
+
+            if (byteVolume[n] & cBitSelect) // the set bit position in cBitSelect in vol is set, output high
+04EC  EE00F096  	LFSR 0x00,  writeVolum_0001E_1_byteVolume
+04F0  50E9      	MOVF FSR0L, W
+04F2  5195      	MOVF writeVolum_0001E_1_n, W, 1
+04F4  26E9      	ADDWF FSR0L, F
+04F6  519C      	MOVF writeVolum_0001E_64_cBitSelect, W, 1
+04F8  14EF      	ANDWF INDF0, W
+04FA  E002      	BZ	label45
+0500            label45
+
+                VOLDATA = 1;
+04FC  8082      	BSF gbl_portc,0
+
+            else
+04FE  D001      	BRA	label46
+0502            label46
+
+                VOLDATA = 0;
+0500  9082      	BCF gbl_portc,0
+
+
+            // Raise clock so serial bit output is sent
+            VOLCLOCK = 1;
+0502  8282      	BSF gbl_portc,1
+
+        }
+    }
+    // Set latch to high
+    VOLLATCH = 1;
+050E  8482      	BSF gbl_portc,2
+
+}
+0510  0012      	RETURN
+
+
+/******************************************************
+ Adjust the volume level and return the result, from 0 to 255 only
+ *******************************************************/
+char getAdjustedVolume(signed char iVolAdj) {
+
+    // Returns an adjustment to the volume, floor at zero and ceiling at 255
+    char iResult = iVolume + iVolAdj;
+02B2  519C      	MOVF getAdjuste_00021_arg_iVolAdj, W, 1
+02B4  2573      	ADDWF gbl_iVolume, W, 1
+02B6  6F9D      	MOVWF getAdjuste_00021_1_iResult, 1
+
+    // Prevent overflow
+    if (iVolAdj < 0) { // Negative, new level should always be less than overall
+02B8  AF9C      	BTFSS getAdjuste_00021_arg_iVolAdj,7, 1
+02BA  D005      	BRA	label17
+02C6            label17
+
+        if (iResult > iVolume)
+02BC  519D      	MOVF getAdjuste_00021_1_iResult, W, 1
+02BE  6173      	CPFSLT gbl_iVolume, 1
+02C0  D006      	BRA	label18
+
+            iResult = 0;
+02C2  6B9D      	CLRF getAdjuste_00021_1_iResult, 1
+
+    }
+    else { // Positive, new level should be greater than overall
+02C4  D004      	BRA	label18
+
+        if (iResult < iVolume)
+02C6  5173      	MOVF gbl_iVolume, W, 1
+02C8  619D      	CPFSLT getAdjuste_00021_1_iResult, 1
+02CA  D001      	BRA	label18
+02CE            label18
+
+            iResult = 255;
+02CC  699D      	SETF getAdjuste_00021_1_iResult, 1
+
+    }
+    return iResult;
+02CE  519D      	MOVF getAdjuste_00021_1_iResult, W, 1
+02D0  6F9E      	MOVWF CompTempVarRet669, 1
+
+}
+02D2  0012      	RETURN
+
+
+/***********************************************************************************
+  Functions to display and adjust amp functions i.e. bass, treble, balance
+************************************************************************************/
+void functionValueDisplay(signed char iValue, char isBal) {
+
+    ledData2[0] = 0;
+02D4  6B68      	CLRF gbl_ledData2, 1
+
+    ledData2[1] = 0;
+02D6  6B69      	CLRF gbl_ledData2+D'1', 1
+
+    
+    ledCurrentLine = 2;
+02D8  0E02      	MOVLW 0x02
+02DA  6F86      	MOVWF gbl_ledCurrentLine, 1
+
+    // write characters to array
+    if (isBal) {
+02DC  5395      	MOVF functionVa_00023_arg_isBal, F, 1
+02DE  E012      	BZ	label20
+
+        ledCurrentCol = 0;
+02E0  6B87      	CLRF gbl_ledCurrentCol, 1
+
+        if (iValue < 0)
+02E2  AF94      	BTFSS functionVa_00023_arg_iValue,7, 1
+02E4  D005      	BRA	label19
+02F0            label19
+
+            ledChar('L', 0);
+02E6  0E4C      	MOVLW 0x4C
+02E8  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+02EA  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+02EC  ECE0F000  	CALL ledChar_00000
+
+        if (iValue > 0)
+02F0  0E00      	MOVLW 0x00
+02F2  BF94      	BTFSC functionVa_00023_arg_iValue,7, 1
+02F4  D007      	BRA	label20
+02F6  6594      	CPFSGT functionVa_00023_arg_iValue, 1
+02F8  D005      	BRA	label20
+0304            label20
+
+            ledChar('r', 0);
+02FA  0E72      	MOVLW 0x72
+02FC  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+02FE  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0300  ECE0F000  	CALL ledChar_00000
+
+    }
+    ledCurrentCol = 1;
+0304  0E01      	MOVLW 0x01
+0306  6F87      	MOVWF gbl_ledCurrentCol, 1
+
+    if (iValue < 0)
+0308  AF94      	BTFSS functionVa_00023_arg_iValue,7, 1
+030A  D005      	BRA	label21
+0316            label21
+
+        ledChar('-', 0);
+030C  0E2D      	MOVLW 0x2D
+030E  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0310  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0312  ECE0F000  	CALL ledChar_00000
+
+    if (iValue > 0) {
+0316  0E00      	MOVLW 0x00
+0318  BF94      	BTFSC functionVa_00023_arg_iValue,7, 1
+031A  D009      	BRA	label22
+031C  6594      	CPFSGT functionVa_00023_arg_iValue, 1
+031E  D007      	BRA	label22
+
+        if (isBal)
+0320  5395      	MOVF functionVa_00023_arg_isBal, F, 1
+0322  E005      	BZ	label22
+032E            label22
+
+            ledChar('-', 0);
+0324  0E2D      	MOVLW 0x2D
+0326  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0328  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+032A  ECE0F000  	CALL ledChar_00000
+
+    }
+
+    char iAdj = abs(iValue);
+032E  0E00      	MOVLW 0x00
+0330  6194      	CPFSLT functionVa_00023_arg_iValue, 1
+0332  D001      	BRA	label23
+0334  D005      	BRA	label24
+0336            label23
+0336  BF94      	BTFSC functionVa_00023_arg_iValue,7, 1
+0338  D003      	BRA	label24
+033A  5194      	MOVF functionVa_00023_arg_iValue, W, 1
+033C  6F96      	MOVWF functionVa_00023_1_iAdj, 1
+033E  D003      	BRA	label25
+0340            label24
+0340  1D94      	COMF functionVa_00023_arg_iValue, W, 1
+0342  6F96      	MOVWF functionVa_00023_1_iAdj, 1
+0344  2B96      	INCF functionVa_00023_1_iAdj, F, 1
+0346            label25
+
+    char iDecimal = 0;
+0346  6B97      	CLRF functionVa_00023_1_iDecimal, 1
+
+    if (iAdj.0)
+0348  A196      	BTFSS functionVa_00023_1_iAdj,0, 1
+034A  D002      	BRA	label26
+0350            label26
+
+        iDecimal = 5;
+034C  0E05      	MOVLW 0x05
+034E  6F97      	MOVWF functionVa_00023_1_iDecimal, 1
+
+    iAdj = iAdj / 2;
+0350  5396      	MOVF functionVa_00023_1_iAdj, F, 1
+0352  90D8      	BCF STATUS,C
+0354  3396      	RRCF functionVa_00023_1_iAdj, F, 1
+
+    
+    // incrementing 10s
+    // determine to tens digit
+    ledCurrentCol = 2;
+0356  0E02      	MOVLW 0x02
+0358  6F87      	MOVWF gbl_ledCurrentCol, 1
+
+    if (iAdj >= 10) {
+035A  0E0A      	MOVLW 0x0A
+035C  6196      	CPFSLT functionVa_00023_1_iAdj, 1
+035E  D001      	BRA	label27
+0360  D008      	BRA	label28
+0362            label27
+0372            label28
+
+        ledChar('1', 0);
+0362  0E31      	MOVLW 0x31
+0364  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0366  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0368  ECE0F000  	CALL ledChar_00000
+
+        iAdj -= 10;
+036C  0E0A      	MOVLW 0x0A
+036E  5F96      	SUBWF functionVa_00023_1_iAdj, F, 1
+
+    } else {
+0370  D005      	BRA	label29
+037C            label29
+
+        ledChar(' ', 0);
+0372  0E20      	MOVLW 0x20
+0374  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0376  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0378  ECE0F000  	CALL ledChar_00000
+
+    }    
+    // 2nd digit in number + added decimal point
+    ledChar(iAdj + 48, 1);
+037C  0E30      	MOVLW 0x30
+037E  2596      	ADDWF functionVa_00023_1_iAdj, W, 1
+0380  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0382  0E01      	MOVLW 0x01
+0384  6F9C      	MOVWF ledChar_00000_arg_iHasDot, 1
+0386  ECE0F000  	CALL ledChar_00000
+
+    
+    // Decimal number
+    ledChar(iDecimal + 48, 0);
+038A  0E30      	MOVLW 0x30
+038C  2597      	ADDWF functionVa_00023_1_iDecimal, W, 1
+038E  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+0390  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+0392  ECE0F000  	CALL ledChar_00000
+
+    ledChar(' ', 0);
+0396  0E20      	MOVLW 0x20
+0398  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+039A  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+039C  ECE0F000  	CALL ledChar_00000
+
+    ledChar('d', 0);
+03A0  0E64      	MOVLW 0x64
+03A2  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+03A4  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+03A6  ECE0F000  	CALL ledChar_00000
+
+    ledChar('b', 0);
+03AA  0E62      	MOVLW 0x62
+03AC  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+03AE  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+03B0  ECE0F000  	CALL ledChar_00000
+
+    
+    // Write Result to LED display
+    ledWrite();
+03B4  EC58F000  	CALL ledWrite_00000
+
+    
+}
+03B8  0012      	RETURN
+
+
+void functionDisplay() {
+
+    switch (iFunctionMode) {
+
+        case 1: // Centre
+081E  0100      	MOVLB 0x00
+0820  0582      	DECF gbl_iFunctionMode, W, 1
+0822  E020      	BZ	label89
+0864            label89
+
+            ledPrint(1, "Centre");
+0864  0E01      	MOVLW 0x01
+0866  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0868  0E43      	MOVLW 0x43
+086A  6F9C      	MOVWF CompTempVar670, 1
+086C  0E65      	MOVLW 0x65
+086E  6F9D      	MOVWF CompTempVar670+D'1', 1
+0870  6FA1      	MOVWF CompTempVar670+D'5', 1
+0872  0E6E      	MOVLW 0x6E
+0874  6F9E      	MOVWF CompTempVar670+D'2', 1
+0876  0E72      	MOVLW 0x72
+0878  6FA0      	MOVWF CompTempVar670+D'4', 1
+087A  0E74      	MOVLW 0x74
+087C  6F9F      	MOVWF CompTempVar670+D'3', 1
+087E  6BA2      	CLRF CompTempVar670+D'6', 1
+0880  0E00      	MOVLW HIGH(CompTempVar670+D'0')
+0882  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0884  0E9C      	MOVLW LOW(CompTempVar670+D'0')
+0886  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0888  EC81F000  	CALL ledPrint_00000
+
+            functionValueDisplay(iCentreAdjust, 0);
+088C  517A      	MOVF gbl_iCentreAdjust, W, 1
+088E  6F94      	MOVWF functionVa_00023_arg_iValue, 1
+0890  6B95      	CLRF functionVa_00023_arg_isBal, 1
+0892  EC6AF001  	CALL functionVa_00023
+
+            break;
+0896  D13B      	BRA	label102
+
+        case 2: // Rear
+0824  0E02      	MOVLW 0x02
+0826  6382      	CPFSEQ gbl_iFunctionMode, 1
+0828  D001      	BRA	label82
+082A  D036      	BRA	label90
+082C            label82
+0862  D122      	BRA	label100
+0898            label90
+
+            ledPrint(1, "rear");
+0898  0E01      	MOVLW 0x01
+089A  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+089C  0E61      	MOVLW 0x61
+089E  6F9E      	MOVWF CompTempVar672+D'2', 1
+08A0  0E65      	MOVLW 0x65
+08A2  6F9D      	MOVWF CompTempVar672+D'1', 1
+08A4  0E72      	MOVLW 0x72
+08A6  6F9C      	MOVWF CompTempVar672, 1
+08A8  6F9F      	MOVWF CompTempVar672+D'3', 1
+08AA  6BA0      	CLRF CompTempVar672+D'4', 1
+08AC  0E00      	MOVLW HIGH(CompTempVar672+D'0')
+08AE  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+08B0  0E9C      	MOVLW LOW(CompTempVar672+D'0')
+08B2  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+08B4  EC81F000  	CALL ledPrint_00000
+
+            functionValueDisplay(iRearAdjust, 0);
+08B8  5179      	MOVF gbl_iRearAdjust, W, 1
+08BA  6F94      	MOVWF functionVa_00023_arg_iValue, 1
+08BC  6B95      	CLRF functionVa_00023_arg_isBal, 1
+08BE  EC6AF001  	CALL functionVa_00023
+
+            break;
+08C2  D125      	BRA	label102
+
+        case 3: // Balance
+082C  0E03      	MOVLW 0x03
+082E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0830  D001      	BRA	label83
+0832  D048      	BRA	label91
+0834            label83
+08C4            label91
+
+            ledPrint(1, "balance");
+08C4  0E01      	MOVLW 0x01
+08C6  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+08C8  0E61      	MOVLW 0x61
+08CA  6F9D      	MOVWF CompTempVar674+D'1', 1
+08CC  6F9F      	MOVWF CompTempVar674+D'3', 1
+08CE  0E62      	MOVLW 0x62
+08D0  6F9C      	MOVWF CompTempVar674, 1
+08D2  0E63      	MOVLW 0x63
+08D4  6FA1      	MOVWF CompTempVar674+D'5', 1
+08D6  0E65      	MOVLW 0x65
+08D8  6FA2      	MOVWF CompTempVar674+D'6', 1
+08DA  0E6C      	MOVLW 0x6C
+08DC  6F9E      	MOVWF CompTempVar674+D'2', 1
+08DE  0E6E      	MOVLW 0x6E
+08E0  6FA0      	MOVWF CompTempVar674+D'4', 1
+08E2  6BA3      	CLRF CompTempVar674+D'7', 1
+08E4  0E00      	MOVLW HIGH(CompTempVar674+D'0')
+08E6  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+08E8  0E9C      	MOVLW LOW(CompTempVar674+D'0')
+08EA  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+08EC  EC81F000  	CALL ledPrint_00000
+
+            functionValueDisplay(iFrontBalance, 1);
+08F0  5177      	MOVF gbl_iFrontBalance, W, 1
+08F2  6F94      	MOVWF functionVa_00023_arg_iValue, 1
+08F4  0E01      	MOVLW 0x01
+08F6  6F95      	MOVWF functionVa_00023_arg_isBal, 1
+08F8  EC6AF001  	CALL functionVa_00023
+
+            break;
+08FC  D108      	BRA	label102
+
+        case 4: // Rear Balance
+0834  0E04      	MOVLW 0x04
+0836  6382      	CPFSEQ gbl_iFunctionMode, 1
+0838  D001      	BRA	label84
+083A  D061      	BRA	label92
+083C            label84
+08FE            label92
+
+            ledPrint(1, "rear bal");
+08FE  0E01      	MOVLW 0x01
+0900  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0902  0E20      	MOVLW 0x20
+0904  6FA0      	MOVWF CompTempVar676+D'4', 1
+0906  0E61      	MOVLW 0x61
+0908  6F9E      	MOVWF CompTempVar676+D'2', 1
+090A  6FA2      	MOVWF CompTempVar676+D'6', 1
+090C  0E62      	MOVLW 0x62
+090E  6FA1      	MOVWF CompTempVar676+D'5', 1
+0910  0E65      	MOVLW 0x65
+0912  6F9D      	MOVWF CompTempVar676+D'1', 1
+0914  0E6C      	MOVLW 0x6C
+0916  6FA3      	MOVWF CompTempVar676+D'7', 1
+0918  0E72      	MOVLW 0x72
+091A  6F9C      	MOVWF CompTempVar676, 1
+091C  6F9F      	MOVWF CompTempVar676+D'3', 1
+091E  6BA4      	CLRF CompTempVar676+D'8', 1
+0920  0E00      	MOVLW HIGH(CompTempVar676+D'0')
+0922  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0924  0E9C      	MOVLW LOW(CompTempVar676+D'0')
+0926  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0928  EC81F000  	CALL ledPrint_00000
+
+            functionValueDisplay(iRearBalance, 1);
+092C  5178      	MOVF gbl_iRearBalance, W, 1
+092E  6F94      	MOVWF functionVa_00023_arg_iValue, 1
+0930  0E01      	MOVLW 0x01
+0932  6F95      	MOVWF functionVa_00023_arg_isBal, 1
+0934  EC6AF001  	CALL functionVa_00023
+
+            break;
+0938  D0EA      	BRA	label102
+
+        case 5: // Sub
+083C  0E05      	MOVLW 0x05
+083E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0840  D001      	BRA	label85
+0842  D07B      	BRA	label93
+0844            label85
+093A            label93
+
+            ledPrint(1, "Sub");
+093A  0E01      	MOVLW 0x01
+093C  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+093E  0E53      	MOVLW 0x53
+0940  6F9C      	MOVWF CompTempVar678, 1
+0942  0E75      	MOVLW 0x75
+0944  6F9D      	MOVWF CompTempVar678+D'1', 1
+0946  0E62      	MOVLW 0x62
+0948  6F9E      	MOVWF CompTempVar678+D'2', 1
+094A  6B9F      	CLRF CompTempVar678+D'3', 1
+094C  0E00      	MOVLW HIGH(CompTempVar678+D'0')
+094E  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0950  0E9C      	MOVLW LOW(CompTempVar678+D'0')
+0952  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0954  EC81F000  	CALL ledPrint_00000
+
+            //ledPrint(2, "Testing", 1);
+            functionValueDisplay(iSubAdjust, 0);
+0958  517B      	MOVF gbl_iSubAdjust, W, 1
+095A  6F94      	MOVWF functionVa_00023_arg_iValue, 1
+095C  6B95      	CLRF functionVa_00023_arg_isBal, 1
+095E  EC6AF001  	CALL functionVa_00023
+
+            break;
+0962  D0D5      	BRA	label102
+
+        case 6: // Trigger 1
+0844  0E06      	MOVLW 0x06
+0846  6382      	CPFSEQ gbl_iFunctionMode, 1
+0848  D001      	BRA	label86
+084A  D08C      	BRA	label94
+084C            label86
+0964            label94
+
+            ledPrint(1, "Trig 1");
+0964  0E01      	MOVLW 0x01
+0966  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0968  0E54      	MOVLW 0x54
+096A  6F9C      	MOVWF CompTempVar680, 1
+096C  0E72      	MOVLW 0x72
+096E  6F9D      	MOVWF CompTempVar680+D'1', 1
+0970  0E69      	MOVLW 0x69
+0972  6F9E      	MOVWF CompTempVar680+D'2', 1
+0974  0E67      	MOVLW 0x67
+0976  6F9F      	MOVWF CompTempVar680+D'3', 1
+0978  0E20      	MOVLW 0x20
+097A  6FA0      	MOVWF CompTempVar680+D'4', 1
+097C  0E31      	MOVLW 0x31
+097E  6FA1      	MOVWF CompTempVar680+D'5', 1
+0980  6BA2      	CLRF CompTempVar680+D'6', 1
+0982  0E00      	MOVLW HIGH(CompTempVar680+D'0')
+0984  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0986  0E9C      	MOVLW LOW(CompTempVar680+D'0')
+0988  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+098A  EC81F000  	CALL ledPrint_00000
+
+            if (iTrigger.0)
+098E  A17F      	BTFSS gbl_iTrigger,0, 1
+0990  D00E      	BRA	label95
+09AE            label95
+
+                ledPrint(2, "On");
+0992  0E02      	MOVLW 0x02
+0994  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0996  0E4F      	MOVLW 0x4F
+0998  6F9C      	MOVWF CompTempVar682, 1
+099A  0E6E      	MOVLW 0x6E
+099C  6F9D      	MOVWF CompTempVar682+D'1', 1
+099E  6B9E      	CLRF CompTempVar682+D'2', 1
+09A0  0E00      	MOVLW HIGH(CompTempVar682+D'0')
+09A2  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+09A4  0E9C      	MOVLW LOW(CompTempVar682+D'0')
+09A6  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+09A8  EC81F000  	CALL ledPrint_00000
+
+            else
+09AC  D0B0      	BRA	label102
+
+                ledPrint(2, "Off");
+09AE  0E02      	MOVLW 0x02
+09B0  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+09B2  0E4F      	MOVLW 0x4F
+09B4  6F9C      	MOVWF CompTempVar684, 1
+09B6  0E66      	MOVLW 0x66
+09B8  6F9D      	MOVWF CompTempVar684+D'1', 1
+09BA  6F9E      	MOVWF CompTempVar684+D'2', 1
+09BC  6B9F      	CLRF CompTempVar684+D'3', 1
+09BE  0E00      	MOVLW HIGH(CompTempVar684+D'0')
+09C0  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+09C2  0E9C      	MOVLW LOW(CompTempVar684+D'0')
+09C4  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+09C6  EC81F000  	CALL ledPrint_00000
+
+            break;
+09CA  D0A1      	BRA	label102
+
+        case 7: // Trigger 2
+084C  0E07      	MOVLW 0x07
+084E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0850  D001      	BRA	label87
+0852  D0BC      	BRA	label96
+0854            label87
+09CC            label96
+
+            ledPrint(1, "Trig 2");
+09CC  0E01      	MOVLW 0x01
+09CE  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+09D0  0E54      	MOVLW 0x54
+09D2  6F9C      	MOVWF CompTempVar686, 1
+09D4  0E72      	MOVLW 0x72
+09D6  6F9D      	MOVWF CompTempVar686+D'1', 1
+09D8  0E69      	MOVLW 0x69
+09DA  6F9E      	MOVWF CompTempVar686+D'2', 1
+09DC  0E67      	MOVLW 0x67
+09DE  6F9F      	MOVWF CompTempVar686+D'3', 1
+09E0  0E20      	MOVLW 0x20
+09E2  6FA0      	MOVWF CompTempVar686+D'4', 1
+09E4  0E32      	MOVLW 0x32
+09E6  6FA1      	MOVWF CompTempVar686+D'5', 1
+09E8  6BA2      	CLRF CompTempVar686+D'6', 1
+09EA  0E00      	MOVLW HIGH(CompTempVar686+D'0')
+09EC  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+09EE  0E9C      	MOVLW LOW(CompTempVar686+D'0')
+09F0  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+09F2  EC81F000  	CALL ledPrint_00000
+
+            if (iTrigger.1)
+09F6  A37F      	BTFSS gbl_iTrigger,1, 1
+09F8  D00E      	BRA	label97
+0A16            label97
+
+                ledPrint(2, "On");
+09FA  0E02      	MOVLW 0x02
+09FC  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+09FE  0E4F      	MOVLW 0x4F
+0A00  6F9C      	MOVWF CompTempVar688, 1
+0A02  0E6E      	MOVLW 0x6E
+0A04  6F9D      	MOVWF CompTempVar688+D'1', 1
+0A06  6B9E      	CLRF CompTempVar688+D'2', 1
+0A08  0E00      	MOVLW HIGH(CompTempVar688+D'0')
+0A0A  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0A0C  0E9C      	MOVLW LOW(CompTempVar688+D'0')
+0A0E  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0A10  EC81F000  	CALL ledPrint_00000
+
+            else
+0A14  D07C      	BRA	label102
+
+                ledPrint(2, "Off");
+0A16  0E02      	MOVLW 0x02
+0A18  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0A1A  0E4F      	MOVLW 0x4F
+0A1C  6F9C      	MOVWF CompTempVar690, 1
+0A1E  0E66      	MOVLW 0x66
+0A20  6F9D      	MOVWF CompTempVar690+D'1', 1
+0A22  6F9E      	MOVWF CompTempVar690+D'2', 1
+0A24  6B9F      	CLRF CompTempVar690+D'3', 1
+0A26  0E00      	MOVLW HIGH(CompTempVar690+D'0')
+0A28  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0A2A  0E9C      	MOVLW LOW(CompTempVar690+D'0')
+0A2C  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0A2E  EC81F000  	CALL ledPrint_00000
+
+            break;
+0A32  D06D      	BRA	label102
+
+        case 8: // External surround
+0854  0E08      	MOVLW 0x08
+0856  6382      	CPFSEQ gbl_iFunctionMode, 1
+0858  D001      	BRA	label88
+085A  D0EC      	BRA	label98
+085C            label88
+0A34            label98
+
+            ledPrint(1, "51 Sound");
+0A34  0E01      	MOVLW 0x01
+0A36  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0A38  0E35      	MOVLW 0x35
+0A3A  6F9C      	MOVWF CompTempVar692, 1
+0A3C  0E31      	MOVLW 0x31
+0A3E  6F9D      	MOVWF CompTempVar692+D'1', 1
+0A40  0E20      	MOVLW 0x20
+0A42  6F9E      	MOVWF CompTempVar692+D'2', 1
+0A44  0E53      	MOVLW 0x53
+0A46  6F9F      	MOVWF CompTempVar692+D'3', 1
+0A48  0E6F      	MOVLW 0x6F
+0A4A  6FA0      	MOVWF CompTempVar692+D'4', 1
+0A4C  0E75      	MOVLW 0x75
+0A4E  6FA1      	MOVWF CompTempVar692+D'5', 1
+0A50  0E6E      	MOVLW 0x6E
+0A52  6FA2      	MOVWF CompTempVar692+D'6', 1
+0A54  0E64      	MOVLW 0x64
+0A56  6FA3      	MOVWF CompTempVar692+D'7', 1
+0A58  6BA4      	CLRF CompTempVar692+D'8', 1
+0A5A  0E00      	MOVLW HIGH(CompTempVar692+D'0')
+0A5C  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0A5E  0E9C      	MOVLW LOW(CompTempVar692+D'0')
+0A60  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0A62  EC81F000  	CALL ledPrint_00000
+
+            ledData1[0] = 0xDB; // 5 with dot
+0A66  0EDB      	MOVLW 0xDB
+0A68  6F60      	MOVWF gbl_ledData1, 1
+
+            if (iExtSurroundMode)
+0A6A  5381      	MOVF gbl_iExtSurroundMode, F, 1
+0A6C  E00E      	BZ	label99
+0A8A            label99
+
+                ledPrint(2, "On");
+0A6E  0E02      	MOVLW 0x02
+0A70  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0A72  0E4F      	MOVLW 0x4F
+0A74  6F9C      	MOVWF CompTempVar695, 1
+0A76  0E6E      	MOVLW 0x6E
+0A78  6F9D      	MOVWF CompTempVar695+D'1', 1
+0A7A  6B9E      	CLRF CompTempVar695+D'2', 1
+0A7C  0E00      	MOVLW HIGH(CompTempVar695+D'0')
+0A7E  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0A80  0E9C      	MOVLW LOW(CompTempVar695+D'0')
+0A82  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0A84  EC81F000  	CALL ledPrint_00000
+
+            else
+0A88  D042      	BRA	label102
+
+                ledPrint(2, "Off");
+0A8A  0E02      	MOVLW 0x02
+0A8C  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0A8E  0E4F      	MOVLW 0x4F
+0A90  6F9C      	MOVWF CompTempVar697, 1
+0A92  0E66      	MOVLW 0x66
+0A94  6F9D      	MOVWF CompTempVar697+D'1', 1
+0A96  6F9E      	MOVWF CompTempVar697+D'2', 1
+0A98  6B9F      	CLRF CompTempVar697+D'3', 1
+0A9A  0E00      	MOVLW HIGH(CompTempVar697+D'0')
+0A9C  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0A9E  0E9C      	MOVLW LOW(CompTempVar697+D'0')
+0AA0  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0AA2  EC81F000  	CALL ledPrint_00000
+
+            break;
+0AA6  D033      	BRA	label102
+
+        case 9: // Hafler surround
+085C  0E09      	MOVLW 0x09
+085E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0860  D156      	BRA	label102
+0AA8            label100
+
+            ledPrint(1, "Hafler");
+0AA8  0E01      	MOVLW 0x01
+0AAA  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0AAC  0E48      	MOVLW 0x48
+0AAE  6F9C      	MOVWF CompTempVar699, 1
+0AB0  0E61      	MOVLW 0x61
+0AB2  6F9D      	MOVWF CompTempVar699+D'1', 1
+0AB4  0E66      	MOVLW 0x66
+0AB6  6F9E      	MOVWF CompTempVar699+D'2', 1
+0AB8  0E6C      	MOVLW 0x6C
+0ABA  6F9F      	MOVWF CompTempVar699+D'3', 1
+0ABC  0E65      	MOVLW 0x65
+0ABE  6FA0      	MOVWF CompTempVar699+D'4', 1
+0AC0  0E72      	MOVLW 0x72
+0AC2  6FA1      	MOVWF CompTempVar699+D'5', 1
+0AC4  6BA2      	CLRF CompTempVar699+D'6', 1
+0AC6  0E00      	MOVLW HIGH(CompTempVar699+D'0')
+0AC8  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0ACA  0E9C      	MOVLW LOW(CompTempVar699+D'0')
+0ACC  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0ACE  EC81F000  	CALL ledPrint_00000
+
+            if (iSurroundMode)
+0AD2  5380      	MOVF gbl_iSurroundMode, F, 1
+0AD4  E00E      	BZ	label101
+0AF2            label101
+
+                ledPrint(2, "On");
+0AD6  0E02      	MOVLW 0x02
+0AD8  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0ADA  0E4F      	MOVLW 0x4F
+0ADC  6F9C      	MOVWF CompTempVar701, 1
+0ADE  0E6E      	MOVLW 0x6E
+0AE0  6F9D      	MOVWF CompTempVar701+D'1', 1
+0AE2  6B9E      	CLRF CompTempVar701+D'2', 1
+0AE4  0E00      	MOVLW HIGH(CompTempVar701+D'0')
+0AE6  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0AE8  0E9C      	MOVLW LOW(CompTempVar701+D'0')
+0AEA  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0AEC  EC81F000  	CALL ledPrint_00000
+
+            else
+0AF0  D00E      	BRA	label102
+0B0E            label102
+
+                ledPrint(2, "Off");
+0AF2  0E02      	MOVLW 0x02
+0AF4  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+0AF6  0E4F      	MOVLW 0x4F
+0AF8  6F9C      	MOVWF CompTempVar703, 1
+0AFA  0E66      	MOVLW 0x66
+0AFC  6F9D      	MOVWF CompTempVar703+D'1', 1
+0AFE  6F9E      	MOVWF CompTempVar703+D'2', 1
+0B00  6B9F      	CLRF CompTempVar703+D'3', 1
+0B02  0E00      	MOVLW HIGH(CompTempVar703+D'0')
+0B04  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+0B06  0E9C      	MOVLW LOW(CompTempVar703+D'0')
+0B08  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+0B0A  EC81F000  	CALL ledPrint_00000
+
+            break;
+    }
+    // Write Result to LED display
+    ledWrite();
+0B0E  EC58F000  	CALL ledWrite_00000
+
+}
+0B12  0012      	RETURN
+
+
+char functionValueRaise(signed char iValue) {
+
+    if (iValue < 32)
+080C  0E20      	MOVLW 0x20
+080E  6194      	CPFSLT functionVa_00025_arg_iValue, 1
+0810  D001      	BRA	label80
+0812  D001      	BRA	label81
+0814            label80
+0814  BF94      	BTFSC functionVa_00025_arg_iValue,7, 1
+
+        iValue++;
+0816  2B94      	INCF functionVa_00025_arg_iValue, F, 1
+
+    return iValue;
+0818  5194      	MOVF functionVa_00025_arg_iValue, W, 1
+081A  6F95      	MOVWF CompTempVarRet709, 1
+
+}
+081C  0012      	RETURN
+
+
+char functionValueLower(signed char iValue) {
+
+    if (iValue > -32)
+07FA  5194      	MOVF functionVa_00027_arg_iValue, W, 1
+07FC  90D8      	BCF STATUS,C
+07FE  BF94      	BTFSC functionVa_00027_arg_iValue,7, 1
+0800  08E0      	SUBLW 0xE0
+0802  A0D8      	BTFSS STATUS,C
+
+        iValue--;
+0804  0794      	DECF functionVa_00027_arg_iValue, F, 1
+
+    return iValue;
+0806  5194      	MOVF functionVa_00027_arg_iValue, W, 1
+0808  6F95      	MOVWF CompTempVarRet710, 1
+
+}
+080A  0012      	RETURN
+
+
+void functionRaise() {
+
+    switch (iFunctionMode) {
+0D00            label124
+
+        case 1: // Centre
+0C2E  0100      	MOVLB 0x00
+0C30  0582      	DECF gbl_iFunctionMode, W, 1
+0C32  E020      	BZ	label111
+0C74            label111
+
+            iCentreAdjust = functionValueRaise(iCentreAdjust);
+0C74  517A      	MOVF gbl_iCentreAdjust, W, 1
+0C76  6F94      	MOVWF functionVa_00025_arg_iValue, 1
+0C78  EC06F004  	CALL functionVa_00025
+0C7C  5195      	MOVF CompTempVarRet709, W, 1
+0C7E  6F7A      	MOVWF gbl_iCentreAdjust, 1
+
+            writeVolumes();
+0C80  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0C84  D03D      	BRA	label124
+
+        case 2: // Rear
+0C34  0E02      	MOVLW 0x02
+0C36  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C38  D001      	BRA	label104
+0C3A  D025      	BRA	label112
+0C3C            label104
+0C72  D03E      	BRA	label121
+0C86            label112
+
+            iRearAdjust = functionValueRaise(iRearAdjust);
+0C86  5179      	MOVF gbl_iRearAdjust, W, 1
+0C88  6F94      	MOVWF functionVa_00025_arg_iValue, 1
+0C8A  EC06F004  	CALL functionVa_00025
+0C8E  5195      	MOVF CompTempVarRet709, W, 1
+0C90  6F79      	MOVWF gbl_iRearAdjust, 1
+
+            writeVolumes();
+0C92  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0C96  D034      	BRA	label124
+
+        case 3: // Balance
+0C3C  0E03      	MOVLW 0x03
+0C3E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C40  D001      	BRA	label105
+0C42  D02A      	BRA	label113
+0C44            label105
+0C98            label113
+
+            iFrontBalance = functionValueRaise(iFrontBalance);
+0C98  5177      	MOVF gbl_iFrontBalance, W, 1
+0C9A  6F94      	MOVWF functionVa_00025_arg_iValue, 1
+0C9C  EC06F004  	CALL functionVa_00025
+0CA0  5195      	MOVF CompTempVarRet709, W, 1
+0CA2  6F77      	MOVWF gbl_iFrontBalance, 1
+
+            writeVolumes();
+0CA4  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0CA8  D02B      	BRA	label124
+
+        case 4: // Rear Balance
+0C44  0E04      	MOVLW 0x04
+0C46  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C48  D001      	BRA	label106
+0C4A  D02F      	BRA	label114
+0C4C            label106
+0CAA            label114
+
+            iRearBalance = functionValueRaise(iRearBalance);
+0CAA  5178      	MOVF gbl_iRearBalance, W, 1
+0CAC  6F94      	MOVWF functionVa_00025_arg_iValue, 1
+0CAE  EC06F004  	CALL functionVa_00025
+0CB2  5195      	MOVF CompTempVarRet709, W, 1
+0CB4  6F78      	MOVWF gbl_iRearBalance, 1
+
+            writeVolumes();
+0CB6  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0CBA  D022      	BRA	label124
+
+        case 5: // Centre
+0C4C  0E05      	MOVLW 0x05
+0C4E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C50  D001      	BRA	label107
+0C52  D034      	BRA	label115
+0C54            label107
+0CBC            label115
+
+            iSubAdjust = functionValueRaise(iSubAdjust);
+0CBC  517B      	MOVF gbl_iSubAdjust, W, 1
+0CBE  6F94      	MOVWF functionVa_00025_arg_iValue, 1
+0CC0  EC06F004  	CALL functionVa_00025
+0CC4  5195      	MOVF CompTempVarRet709, W, 1
+0CC6  6F7B      	MOVWF gbl_iSubAdjust, 1
+
+            writeVolumes();
+0CC8  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0CCC  D019      	BRA	label124
+
+        case 6: // Trigger 1
+0C54  0E06      	MOVLW 0x06
+0C56  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C58  D001      	BRA	label108
+0C5A  D039      	BRA	label116
+0C5C            label108
+0CCE            label116
+
+            iTrigger.0 = 1;
+0CCE  817F      	BSF gbl_iTrigger,0, 1
+
+            writeRelay();
+0CD0  EC89F002  	CALL writeRelay_00000
+
+            break;
+0CD4  D015      	BRA	label124
+
+        case 7: // Trigger 2
+0C5C  0E07      	MOVLW 0x07
+0C5E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C60  D001      	BRA	label109
+0C62  D039      	BRA	label117
+0C64            label109
+0CD6            label117
+
+            iTrigger.1 = 1;
+0CD6  837F      	BSF gbl_iTrigger,1, 1
+
+            writeRelay();
+0CD8  EC89F002  	CALL writeRelay_00000
+
+            break;
+0CDC  D011      	BRA	label124
+
+        case 8: // External surround
+0C64  0E08      	MOVLW 0x08
+0C66  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C68  D001      	BRA	label110
+0C6A  D039      	BRA	label118
+0C6C            label110
+0CDE            label118
+
+            if (iExtSurroundMode)
+0CDE  5381      	MOVF gbl_iExtSurroundMode, F, 1
+0CE0  E002      	BZ	label119
+0CE6            label119
+
+                iExtSurroundMode = 0;
+0CE2  6B81      	CLRF gbl_iExtSurroundMode, 1
+
+            else
+0CE4  D002      	BRA	label120
+0CEA            label120
+
+                iExtSurroundMode = 1;
+0CE6  0E01      	MOVLW 0x01
+0CE8  6F81      	MOVWF gbl_iExtSurroundMode, 1
+
+            writeRelay();
+0CEA  EC89F002  	CALL writeRelay_00000
+
+            break;
+0CEE  D008      	BRA	label124
+
+        case 9: // Hafler surround
+0C6C  0E09      	MOVLW 0x09
+0C6E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0C70  D047      	BRA	label124
+0CF0            label121
+
+            if (iSurroundMode)
+0CF0  5380      	MOVF gbl_iSurroundMode, F, 1
+0CF2  E002      	BZ	label122
+0CF8            label122
+
+                iSurroundMode = 0;
+0CF4  6B80      	CLRF gbl_iSurroundMode, 1
+
+            else
+0CF6  D002      	BRA	label123
+0CFC            label123
+
+                iSurroundMode = 1;
+0CF8  0E01      	MOVLW 0x01
+0CFA  6F80      	MOVWF gbl_iSurroundMode, 1
+
+            writeVolumes();
+0CFC  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+    }
+    // Display the changed value
+    functionDisplay();
+0D00  EC0FF004  	CALL functionDi_00022
+
+}
+0D04  0012      	RETURN
+
+
+void functionLower() {
+
+    switch (iFunctionMode) {
+0DD8            label145
+
+        case 1: // Centre
+0D06  0100      	MOVLB 0x00
+0D08  0582      	DECF gbl_iFunctionMode, W, 1
+0D0A  E020      	BZ	label132
+0D4C            label132
+
+            iCentreAdjust = functionValueLower(iCentreAdjust);
+0D4C  517A      	MOVF gbl_iCentreAdjust, W, 1
+0D4E  6F94      	MOVWF functionVa_00027_arg_iValue, 1
+0D50  ECFDF003  	CALL functionVa_00027
+0D54  5195      	MOVF CompTempVarRet710, W, 1
+0D56  6F7A      	MOVWF gbl_iCentreAdjust, 1
+
+            writeVolumes();
+0D58  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0D5C  D03D      	BRA	label145
+
+        case 2: // Rear
+0D0C  0E02      	MOVLW 0x02
+0D0E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D10  D001      	BRA	label125
+0D12  D025      	BRA	label133
+0D14            label125
+0D4A  D03E      	BRA	label142
+0D5E            label133
+
+            iRearAdjust = functionValueLower(iRearAdjust);
+0D5E  5179      	MOVF gbl_iRearAdjust, W, 1
+0D60  6F94      	MOVWF functionVa_00027_arg_iValue, 1
+0D62  ECFDF003  	CALL functionVa_00027
+0D66  5195      	MOVF CompTempVarRet710, W, 1
+0D68  6F79      	MOVWF gbl_iRearAdjust, 1
+
+            writeVolumes();
+0D6A  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0D6E  D034      	BRA	label145
+
+        case 3: // Balance
+0D14  0E03      	MOVLW 0x03
+0D16  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D18  D001      	BRA	label126
+0D1A  D02A      	BRA	label134
+0D1C            label126
+0D70            label134
+
+            iFrontBalance = functionValueLower(iFrontBalance);
+0D70  5177      	MOVF gbl_iFrontBalance, W, 1
+0D72  6F94      	MOVWF functionVa_00027_arg_iValue, 1
+0D74  ECFDF003  	CALL functionVa_00027
+0D78  5195      	MOVF CompTempVarRet710, W, 1
+0D7A  6F77      	MOVWF gbl_iFrontBalance, 1
+
+            writeVolumes();
+0D7C  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0D80  D02B      	BRA	label145
+
+        case 4: // Rear Balance
+0D1C  0E04      	MOVLW 0x04
+0D1E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D20  D001      	BRA	label127
+0D22  D02F      	BRA	label135
+0D24            label127
+0D82            label135
+
+            iRearBalance = functionValueLower(iRearBalance);
+0D82  5178      	MOVF gbl_iRearBalance, W, 1
+0D84  6F94      	MOVWF functionVa_00027_arg_iValue, 1
+0D86  ECFDF003  	CALL functionVa_00027
+0D8A  5195      	MOVF CompTempVarRet710, W, 1
+0D8C  6F78      	MOVWF gbl_iRearBalance, 1
+
+            writeVolumes();
+0D8E  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0D92  D022      	BRA	label145
+
+        case 5: // Centre
+0D24  0E05      	MOVLW 0x05
+0D26  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D28  D001      	BRA	label128
+0D2A  D034      	BRA	label136
+0D2C            label128
+0D94            label136
+
+            iSubAdjust = functionValueLower(iSubAdjust);
+0D94  517B      	MOVF gbl_iSubAdjust, W, 1
+0D96  6F94      	MOVWF functionVa_00027_arg_iValue, 1
+0D98  ECFDF003  	CALL functionVa_00027
+0D9C  5195      	MOVF CompTempVarRet710, W, 1
+0D9E  6F7B      	MOVWF gbl_iSubAdjust, 1
+
+            writeVolumes();
+0DA0  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+0DA4  D019      	BRA	label145
+
+        case 6: // Trigger 1
+0D2C  0E06      	MOVLW 0x06
+0D2E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D30  D001      	BRA	label129
+0D32  D039      	BRA	label137
+0D34            label129
+0DA6            label137
+
+            iTrigger.0 = 0;
+0DA6  917F      	BCF gbl_iTrigger,0, 1
+
+            writeRelay();
+0DA8  EC89F002  	CALL writeRelay_00000
+
+            break;
+0DAC  D015      	BRA	label145
+
+        case 7: // Trigger 2
+0D34  0E07      	MOVLW 0x07
+0D36  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D38  D001      	BRA	label130
+0D3A  D039      	BRA	label138
+0D3C            label130
+0DAE            label138
+
+            iTrigger.1 = 0;
+0DAE  937F      	BCF gbl_iTrigger,1, 1
+
+            writeRelay();
+0DB0  EC89F002  	CALL writeRelay_00000
+
+            break;
+0DB4  D011      	BRA	label145
+
+        case 8: // External surround
+0D3C  0E08      	MOVLW 0x08
+0D3E  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D40  D001      	BRA	label131
+0D42  D039      	BRA	label139
+0D44            label131
+0DB6            label139
+
+            if (iExtSurroundMode)
+0DB6  5381      	MOVF gbl_iExtSurroundMode, F, 1
+0DB8  E002      	BZ	label140
+0DBE            label140
+
+                iExtSurroundMode = 0;
+0DBA  6B81      	CLRF gbl_iExtSurroundMode, 1
+
+            else
+0DBC  D002      	BRA	label141
+0DC2            label141
+
+                iExtSurroundMode = 1;
+0DBE  0E01      	MOVLW 0x01
+0DC0  6F81      	MOVWF gbl_iExtSurroundMode, 1
+
+            writeRelay();
+0DC2  EC89F002  	CALL writeRelay_00000
+
+            break;
+0DC6  D008      	BRA	label145
+
+        case 9: // Hafler surround
+0D44  0E09      	MOVLW 0x09
+0D46  6382      	CPFSEQ gbl_iFunctionMode, 1
+0D48  D047      	BRA	label145
+0DC8            label142
+
+            if (iSurroundMode)
+0DC8  5380      	MOVF gbl_iSurroundMode, F, 1
+0DCA  E002      	BZ	label143
+0DD0            label143
+
+                iSurroundMode = 0;
+0DCC  6B80      	CLRF gbl_iSurroundMode, 1
+
+            else
+0DCE  D002      	BRA	label144
+0DD4            label144
+
+                iSurroundMode = 1;
+0DD0  0E01      	MOVLW 0x01
+0DD2  6F80      	MOVWF gbl_iSurroundMode, 1
+
+            writeVolumes();
+0DD4  ECDDF001  	CALL writeVolum_0001E
+
+            break;
+    }
+    // Display the changed value
+    functionDisplay();
+0DD8  EC0FF004  	CALL functionDi_00022
+
+}
+0DDC  0012      	RETURN
+
+
+void functionUp() {
+
+    // Change to another function
+    iFunctionMode++;
+0C1A  0100      	MOVLB 0x00
+0C1C  2B82      	INCF gbl_iFunctionMode, F, 1
+
+    // Cycle back to 1st function if at 9th
+    if (iFunctionMode > 9)
+0C1E  0E09      	MOVLW 0x09
+0C20  6582      	CPFSGT gbl_iFunctionMode, 1
+0C22  D002      	BRA	label103
+0C28            label103
+
+        iFunctionMode = 1;
+0C24  0E01      	MOVLW 0x01
+0C26  6F82      	MOVWF gbl_iFunctionMode, 1
+
+    // Display the function and value
+    functionDisplay();
+0C28  EC0FF004  	CALL functionDi_00022
+
+}
+0C2C  0012      	RETURN
+
+
+void functionDown() {
+
+    // Change to another function
+    iFunctionMode--;
+0DDE  0100      	MOVLB 0x00
+0DE0  0782      	DECF gbl_iFunctionMode, F, 1
+
+    // Cycle back to 9th function if at 1st
+    if (iFunctionMode < 1)
+0DE2  0E01      	MOVLW 0x01
+0DE4  6182      	CPFSLT gbl_iFunctionMode, 1
+0DE6  D002      	BRA	label146
+0DEC            label146
+
+        iFunctionMode = 9;
+0DE8  0E09      	MOVLW 0x09
+0DEA  6F82      	MOVWF gbl_iFunctionMode, 1
+
+    // Display the function and value
+    functionDisplay();
+0DEC  EC0FF004  	CALL functionDi_00022
+
+}
+0DF0  0012      	RETURN
+
+
+/******************************************************
+  Read and process remote control RC5 commands
+*******************************************************/
+void rc5Process() {
+
+    IR_LED = 0; // switch off IR LED
+1032  9480      	BCF gbl_porta,2
+
+    char iGotCommand = 0;
+1034  0100      	MOVLB 0x00
+1036  6B93      	CLRF rc5Process_00000_1_iGotCommand, 1
+
+    if (rc5_address == 0) { // Addresses above zero are not for this device
+1038  5391      	MOVF gbl_rc5_address, F, 1
+103A  A4D8      	BTFSS STATUS,Z
+
+        // Process commands
+        if (iPower) { // Don't process the following if power is off
+103E  537C      	MOVF gbl_iPower, F, 1
+1040  B4D8      	BTFSC STATUS,Z
+1042  D061      	BRA	label175
+
+            // Get current volume level
+            switch (rc5_command) {
+
+                // For each command, cause the correct action 
+                case 13: // Mute (13 / 0x0D / D)
+1044  0E0D      	MOVLW 0x0D
+1046  6392      	CPFSEQ gbl_rc5_command, 1
+1048  D001      	BRA	label158
+104A  D010      	BRA	label162
+104C            label158
+106A  D040      	BRA	label173
+106C            label162
+
+                    if (rc5_flickBitOld != rc5_flickBit) { // Prevent repeated muting when holding the button
+106C  518F      	MOVF gbl_rc5_flickBit, W, 1
+106E  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+1070  638F      	CPFSEQ gbl_rc5_flickBit, 1
+1072  D00E      	BRA	label164
+1090            label164
+
+                        // reset mute held flag
+                        iMuteHeld = 0;
+1074  6B75      	CLRF gbl_iMuteHeld, 1
+
+                        if (iFunctionMode == 0) {
+1076  5382      	MOVF gbl_iFunctionMode, F, 1
+1078  E105      	BNZ	label163
+1084            label163
+
+                            // reset timer
+                            timer1Reset();
+107A  EC92F005  	CALL timer1Rese_0001A
+
+                            // Identify mute button was pressed
+                            iMuteWasPressed = 1;
+107E  0E01      	MOVLW 0x01
+1080  6F76      	MOVWF gbl_iMuteWasPressed, 1
+
+                        } else {
+1082  D041      	BRA	label175
+
+                            // exit function mode
+                            iFunctionMode = 0;
+1084  6B82      	CLRF gbl_iFunctionMode, 1
+
+                            iGotCommand = 1;
+1086  0E01      	MOVLW 0x01
+1088  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+
+                            // turn off the timer
+                            timer1Reset();
+108A  EC92F005  	CALL timer1Rese_0001A
+
+                        }
+                    } else {
+108E  D03B      	BRA	label175
+
+                        // Button held - this should reset timer1 before it interrupts, therefore avoiding processing the command until the button is released
+                        iMuteHeld++;
+1090  2B75      	INCF gbl_iMuteHeld, F, 1
+
+                        // Reset timer
+                        timer1Reset();
+1092  EC92F005  	CALL timer1Rese_0001A
+
+                        if (iMuteHeld >= MUTE_HOLD_TIME) {
+1096  0E09      	MOVLW 0x09
+1098  6175      	CPFSLT gbl_iMuteHeld, 1
+109A  D001      	BRA	label165
+109C  D003      	BRA	label166
+109E            label165
+10A4            label166
+
+                            // flag for entering function mode
+                            iMuteWasPressed = 0;
+109E  6B76      	CLRF gbl_iMuteWasPressed, 1
+
+                            cTask.TASK_TIMER1_FUNC = 1;
+10A0  8D72      	BSF gbl_cTask,6, 1
+
+                        } else {
+10A2  D031      	BRA	label175
+
+                            // Turn on the timer again
+                            t1con.TMR1ON = 1;
+10A4  80CD      	BSF gbl_t1con,0
+
+                        }
+                    }
+                    break;
+10A6  D02F      	BRA	label175
+
+                case 16: // Volume up (16 / 0x10 / E)
+104C  0E10      	MOVLW 0x10
+104E  6392      	CPFSEQ gbl_rc5_command, 1
+1050  D001      	BRA	label159
+1052  D02A      	BRA	label167
+1054            label159
+10A8            label167
+
+                    if (iFunctionMode == 0) {
+10A8  5382      	MOVF gbl_iFunctionMode, F, 1
+10AA  E105      	BNZ	label168
+10B6            label168
+
+                        iGotCommand = 1;
+10AC  0E01      	MOVLW 0x01
+10AE  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+
+                        doVolumeUp();
+10B0  EC0FF007  	CALL doVolumeUp_00000
+
+                    } else {
+10B4  D028      	BRA	label175
+
+                        functionRaise();
+10B6  EC17F006  	CALL functionRa_00024
+
+                    }
+                    break;
+10BA  D025      	BRA	label175
+
+                case 17: // Volume down (17 / 0x11 / F)
+1054  0E11      	MOVLW 0x11
+1056  6392      	CPFSEQ gbl_rc5_command, 1
+1058  D001      	BRA	label160
+105A  D030      	BRA	label169
+105C            label160
+10BC            label169
+
+                    if (iFunctionMode == 0) {
+10BC  5382      	MOVF gbl_iFunctionMode, F, 1
+10BE  E105      	BNZ	label170
+10CA            label170
+
+                        iGotCommand = 1;
+10C0  0E01      	MOVLW 0x01
+10C2  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+
+                        doVolumeDown();
+10C4  EC1FF007  	CALL doVolumeDo_00029
+
+                    } else {
+10C8  D01E      	BRA	label175
+
+                        functionLower();
+10CA  EC83F006  	CALL functionLo_00026
+
+                    }
+                    break;
+10CE  D01B      	BRA	label175
+
+                case 32: // Input right (32 / 0x20 / V)
+105C  0E20      	MOVLW 0x20
+105E  6392      	CPFSEQ gbl_rc5_command, 1
+1060  D001      	BRA	label161
+1062  D036      	BRA	label171
+1064            label161
+10D0            label171
+
+                    if (rc5_flickBitOld != rc5_flickBit) { // Prevent repeated input changing when holding the button
+10D0  518F      	MOVF gbl_rc5_flickBit, W, 1
+10D2  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+10D4  638F      	CPFSEQ gbl_rc5_flickBit, 1
+10D6  D017      	BRA	label175
+
+                        if (iFunctionMode == 0) {
+10D8  5382      	MOVF gbl_iFunctionMode, F, 1
+10DA  E105      	BNZ	label172
+10E6            label172
+
+                            iGotCommand = 1;
+10DC  0E01      	MOVLW 0x01
+10DE  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+
+                            doInputUp();
+10E0  ECC2F007  	CALL doInputUp_00000
+
+                        } else {
+10E4  D010      	BRA	label175
+
+                            functionUp();
+10E6  EC0DF006  	CALL functionUp_00000
+
+                        }
+                    }
+                    break;
+10EA  D00D      	BRA	label175
+
+                case 33: // Input left (33 / 0x21 / U)
+1064  0E21      	MOVLW 0x21
+1066  6392      	CPFSEQ gbl_rc5_command, 1
+1068  D04E      	BRA	label175
+10EC            label173
+
+                    if (rc5_flickBitOld != rc5_flickBit) { // Prevent repeated input changing when holding the button
+10EC  518F      	MOVF gbl_rc5_flickBit, W, 1
+10EE  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+10F0  638F      	CPFSEQ gbl_rc5_flickBit, 1
+10F2  D009      	BRA	label175
+
+                        if (iFunctionMode == 0) {
+10F4  5382      	MOVF gbl_iFunctionMode, F, 1
+10F6  E105      	BNZ	label174
+1102            label174
+
+                            iGotCommand = 1;
+10F8  0E01      	MOVLW 0x01
+10FA  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+
+                            doInputDown();
+10FC  ECCCF007  	CALL doInputDow_00020
+
+                        } else {
+1100  D002      	BRA	label175
+1106            label175
+
+                            functionDown();
+1102  ECEFF006  	CALL functionDo_00028
+
+                        }
+                    }
+                    break;
+            }
+        }
+        // Process power button regardless of power state
+        if (rc5_command == 12) { // Power (12 / 0x0C / A)
+1106  0E0C      	MOVLW 0x0C
+1108  6392      	CPFSEQ gbl_rc5_command, 1
+110A  D007      	BRA	label176
+
+            if (rc5_flickBitOld != rc5_flickBit) { // Prevent repeated power when holding the button
+110C  518F      	MOVF gbl_rc5_flickBit, W, 1
+110E  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+1110  638F      	CPFSEQ gbl_rc5_flickBit, 1
+1112  D003      	BRA	label176
+111A            label176
+
+                // exit function mode
+                iFunctionMode = 0;
+1114  6B82      	CLRF gbl_iFunctionMode, 1
+
+                //iPowerExternal = 0; v1.1 removed this to allow forced power off
+                // power up or down
+                doPower();
+1116  EC2FF007  	CALL doPower_00000
+
+            }
+        }
+        rc5_flickBitOld = rc5_flickBit;
+111A  518F      	MOVF gbl_rc5_flickBit, W, 1
+111C  6F90      	MOVWF gbl_rc5_flickBitOld, 1
+
+        
+        // Generic RS232 send and display if a command was received, and amp powered on
+        if (iPower) {
+111E  537C      	MOVF gbl_iPower, F, 1
+1120  B4D8      	BTFSC STATUS,Z
+
+            if (iGotCommand) {
+1124  5393      	MOVF rc5Process_00000_1_iGotCommand, F, 1
+1126  E007      	BZ	label177
+1136            label177
+
+                //sendRS232Status();
+                showInput();
+1128  EC45F003  	CALL showInput_00000
+
+                showVolume();
+112C  ECCCF002  	CALL showVolume_00000
+
+                ledWrite();
+1130  EC58F000  	CALL ledWrite_00000
+
+            } else if (iFunctionMode) {
+1136  5382      	MOVF gbl_iFunctionMode, F, 1
+1138  A4D8      	BTFSS STATUS,Z
+
+                iTimer1SecCounts = 0; // reset 30 sec timeout
+113A  6B84      	CLRF gbl_iTimer1SecCounts, 1
+
+            }
+        }
+    }
+}
+103C  0012      	RETURN
+1122  0012      	RETURN
+1134  0012      	RETURN
+113C  0012      	RETURN
+
+
+/*void sendRS232Status() {
+    // Array length:
+    // P[1]V[2]I[1]F[2]R[2]r[2]C[2]S[2]M[1]E[1]|
+    // 26
+    // or as bytes - 20
+    rs232SendByte('P');
+    rs232SendByte(iPower + 48); // ASCII representation
+    
+    rs232SendByte('V');
+    rs232SendNibble(iVolume); // Split into two bytes
+    
+    rs232SendByte('Q');
+    rs232SendByte(iMute + 48); // ASCII representation
+    
+    rs232SendByte('I');
+    rs232SendByte(iActiveInput + 48); // ASCII representation
+    
+    rs232SendByte('F');
+    rs232SendNibble(iFrontBalance); // Split into two bytes
+    
+    rs232SendByte('R');
+    rs232SendNibble(iRearBalance); // Split into two bytes
+    
+    rs232SendByte('r');
+    rs232SendNibble(iRearAdjust); // Split into two bytes
+    
+    rs232SendByte('C');
+    rs232SendNibble(iCentreAdjust); // Split into two bytes
+    
+    rs232SendByte('S');
+    rs232SendNibble(iSubAdjust); // Split into two bytes
+    
+    rs232SendByte('M');
+    rs232SendByte(iSurroundMode + 48); // ASCII representation
+    
+    rs232SendByte('E');
+    rs232SendByte(iExtSurroundMode + 48); // ASCII representation
+    
+    rs232SendByte('T');
+    rs232SendByte(iTrigger + 48); // ASCII representation
+    
+    // Line feed
+    rs232SendByte(10);
+}
+
+// Send single character byte over rs232
+void rs232SendByte(char c) {
+    txreg = c; 
+    while (pir1.TXIF == 0); // Wait for byte to be transmitted
+    while (txsta.TRMT == 0); // Wait for byte to be transmitted
+    //delay_us(10);
+}
+
+// Send two bytes over rs232
+void rs232SendNibble(char c) {
+    // Splits one byte into two nibbles and sends
+    // Upper nibble first
+    char cu = (c & 0xF0) >> 4;
+    // then lower
+    char cl = (c & 0x0F);
+
+    rs232SendByte(cu + 48);
+    rs232SendByte(cl + 48);
+    
+    // Translation:
+    // Byte of x = nibble character
+    // 0   = 0,0
+    // 64  = 4,0  0100 = 4,  4  + 48 = 52 : 4  - 0100 0000
+    // 100 = 6,4  0110 = 6,  6  + 48 = 54 : 6  - 0110 0100
+    // 128 = 8,0  1000 = 8,  8  + 48 = 56 : 8  - 1000 0000
+    // 255 = ?,?  1111 = 15, 15 + 48 = 63 : ?  - 1111 1111
+    
+    // For the character values - 16 possible (adding to 48) gives:
+    // 0,1,2,3,4,5,6,7,8,9,:,;,<,=,>,?
+}
+
+// V2.0 - send string over rs232
+void rs232Print(unsigned char *s) {
+      while (*s) {
+        rs232SendByte(*s++);
+    }
+}
+
+// From two bytes containing a nibble of the original byte, reconstruct the original
+char rs232ReceiveNibbles(char i, char j) {
+    // V3.0 do not need to minus 48 in here now
+    // Upper nibble first
+    char cu = i << 4;
+    // then lower
+    char cl = j & 0x0F; // V1.1 changed i to j, V2.0 changed F0 to 0F
+    
+    return cu + cl;
+}
+
+// Process a complete RS232 command
+void rs232CommandReceived() {
+    // Loop through received bytes
+    char i = 0;
+    char iNewPower;
+    char iCommand;
+    char iData1;
+    char iData2;
+    iNewPower = iPower; // V1.1 set new power to power intially, otherwise power changes when any command received
+    while (i < iRS232Index) {
+        // V3.0 made this more efficient by reading all three bytes from the buffer once here, then process after
+        iCommand = rs232Buffer[i];
+        iData1 = rs232Buffer[i + 1] - 48; // This could be 10 (line feed) for the G command, it's not checked though
+        if ((i+2) < iRS232Index) // Make a check if the buffer has two more characters
+            iData2 = rs232Buffer[i + 2] - 48;
+        
+        switch (iCommand) {
+            case 'G':
+                sendRS232Status();
+                i = iRS232Index; // Break out of loop for get command (cannot get status and issue commands at the same time)
+                break;
+            case 'P': // Power
+                iNewPower = iData1;
+                i++; // Increment i to skip next byte
+                break;
+            case 'V': // Volume change
+                iVolume = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'Q': // Mute
+                iMute = iData1;
+                i++; // Increment i to skip next byte
+                break;
+            case 'I': // Input
+                if (iData1 < 4) // Valid inputs are 0 to 3
+                    iActiveInput = iData1;
+                i++; // Increment i to skip next byte
+                break;
+            case 'F': // Front balance
+                iFrontBalance = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'R': // Rear balance
+                iRearBalance = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'r': // Rear adjust
+                iRearAdjust = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'C': // Centre adjust
+                iCentreAdjust = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'S': // Sub adjust
+                iSubAdjust = rs232ReceiveNibbles(iData1, iData2);
+                i+=2; // Double increment to skip next two bytes
+                break;
+            case 'M': // Surround Mode
+                iSurroundMode = iData1;
+                i++; // Increment i to skip next byte
+                break;
+            case 'E': // Ext Surround Mode
+                iExtSurroundMode = iData1;
+                i++; // Increment i to skip next byte
+                break;
+            case 'T': // Trigger state
+                iTrigger = iData1;
+                i++; // Increment i to skip next byte
+                break;
+        }
+        i++;
+    }
+
+    // Reset buffer length
+    iRS232Index = 0;
+
+    if (iNewPower != iPower) {
+        // V1.1 Only change power if it is different from existing
+        // The doPower routine will change the iPower variable
+        //iPower = iNewPower;
+        doPower();
+    }
+    // For get status, do nothing, otherwise write the data
+    if (iPower && (rs232Buffer[0] != 'G')) { 
+        writeVolumes();
+        writeRelay();
+        showVolume();
+        showInput();
+        ledWrite();
+        t1con.TMR1ON = 1; // Start timer
+    }
+}*/
+
+/******************************************************
+  Events for when Timer 1 has finished counting
+*******************************************************/
+void onTimer1() {
+
+    // This function will get called every second, if the amplifier is powered on
+    iTimer1SecCounts++;
+113E  0100      	MOVLB 0x00
+1140  2B84      	INCF gbl_iTimer1SecCounts, F, 1
+
+    if (iTimer1SecCounts >= 30) {
+1142  0E1E      	MOVLW 0x1E
+1144  6184      	CPFSLT gbl_iTimer1SecCounts, 1
+1146  D001      	BRA	label178
+1148  D00F      	BRA	label180
+114A            label178
+1168            label180
+
+        // every 30 seconds, do a reset
+        if (iPower && DC_FAIL) {
+114A  537C      	MOVF gbl_iPower, F, 1
+114C  E00C      	BZ	label179
+114E  A481      	BTFSS gbl_portb,2
+1150  D00A      	BRA	label179
+1166            label179
+
+            // If powered on and DC fail is OK, unmute and show volume/input
+            MUTEOUT = 1; // Unmute amps
+1152  8280      	BSF gbl_porta,1
+
+            RED = 0;
+1154  9680      	BCF gbl_porta,3
+
+            BLUE = 1;
+1156  8A80      	BSF gbl_porta,5
+
+            // exit function mode
+            iFunctionMode = 0;
+1158  6B82      	CLRF gbl_iFunctionMode, 1
+
+            // Show volume and input
+            showVolume();
+115A  ECCCF002  	CALL showVolume_00000
+
+            showInput();
+115E  EC45F003  	CALL showInput_00000
+
+            ledWrite();
+1162  EC58F000  	CALL ledWrite_00000
+
+        }
+        iTimer1SecCounts = 0;
+1166  6B84      	CLRF gbl_iTimer1SecCounts, 1
+
+    }
+    // Count down for power off
+    if (EXT_POWER && iPower && iPowerExternal) {
+1168  AC83      	BTFSS gbl_portd,6
+116A  D02E      	BRA	label182
+116C  537C      	MOVF gbl_iPower, F, 1
+116E  E02C      	BZ	label182
+1170  537D      	MOVF gbl_iPowerExternal, F, 1
+1172  E02A      	BZ	label182
+11C8            label182
+
+        // If off countdown has reached zero, power off
+        if (iTimer1OffCount == 0) {
+1174  5385      	MOVF gbl_iTimer1OffCount, F, 1
+1176  E105      	BNZ	label181
+1182            label181
+
+            // power off
+            iTimer1OffCount = 10;
+1178  0E0A      	MOVLW 0x0A
+117A  6F85      	MOVWF gbl_iTimer1OffCount, 1
+
+            doPower();
+117C  EC2FF007  	CALL doPower_00000
+
+        } else {
+            // otherwise decrement counter and display countdown on display
+            iTimer1OffCount--;
+1182  0785      	DECF gbl_iTimer1OffCount, F, 1
+
+            ledPrint(1, "Off In ");
+1184  0E01      	MOVLW 0x01
+1186  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+1188  0E20      	MOVLW 0x20
+118A  6F9F      	MOVWF CompTempVar713+D'3', 1
+118C  6FA2      	MOVWF CompTempVar713+D'6', 1
+118E  0E49      	MOVLW 0x49
+1190  6FA0      	MOVWF CompTempVar713+D'4', 1
+1192  0E4F      	MOVLW 0x4F
+1194  6F9C      	MOVWF CompTempVar713, 1
+1196  0E66      	MOVLW 0x66
+1198  6F9D      	MOVWF CompTempVar713+D'1', 1
+119A  6F9E      	MOVWF CompTempVar713+D'2', 1
+119C  0E6E      	MOVLW 0x6E
+119E  6FA1      	MOVWF CompTempVar713+D'5', 1
+11A0  6BA3      	CLRF CompTempVar713+D'7', 1
+11A2  0E00      	MOVLW HIGH(CompTempVar713+D'0')
+11A4  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+11A6  0E9C      	MOVLW LOW(CompTempVar713+D'0')
+11A8  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+11AA  EC81F000  	CALL ledPrint_00000
+
+            ledCurrentLine = 1;
+11AE  0E01      	MOVLW 0x01
+11B0  6F86      	MOVWF gbl_ledCurrentLine, 1
+
+            ledCurrentCol = 7;
+11B2  0E07      	MOVLW 0x07
+11B4  6F87      	MOVWF gbl_ledCurrentCol, 1
+
+            ledChar(iTimer1OffCount+48, 0);
+11B6  0E30      	MOVLW 0x30
+11B8  2585      	ADDWF gbl_iTimer1OffCount, W, 1
+11BA  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+11BC  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+11BE  ECE0F000  	CALL ledChar_00000
+
+            ledWrite();
+11C2  EC58F000  	CALL ledWrite_00000
+
+         }
+    } else if (iTimer1OffCount < 10) {
+11C8  0E0A      	MOVLW 0x0A
+11CA  6185      	CPFSLT gbl_iTimer1OffCount, 1
+
+        // reset off count, external power must be back on
+        iTimer1OffCount = 10;
+11CE  0E0A      	MOVLW 0x0A
+11D0  6F85      	MOVWF gbl_iTimer1OffCount, 1
+
+        // exit function mode (in case it was entered)
+        iFunctionMode = 0;
+11D2  6B82      	CLRF gbl_iFunctionMode, 1
+
+        // Show volume and input
+        showVolume();
+11D4  ECCCF002  	CALL showVolume_00000
+
+        showInput();
+11D8  EC45F003  	CALL showInput_00000
+
+        ledWrite();
+11DC  EC58F000  	CALL ledWrite_00000
+
+    }
+}
+1180  0012      	RETURN
+11C6  0012      	RETURN
+11CC  0012      	RETURN
+11E0  0012      	RETURN
+
+
+//-----------------------------------------------------------------------------
+// MAIN PROGRAM
+//------------------------------------------------------------------------------
+void main() {
+
+    initialise();
+127E  ECF1F008  	CALL initialise_00000
+
+    
+    while (1) {
+1282            label183
+1308  D7BC      	BRA	label183
+
+        // Task scheduler
+        // If there are tasks to be performed, find out the
+        // most recent task from the array and execute it
+        while (cTask > 0) {
+1282  0E00      	MOVLW 0x00
+1284  6572      	CPFSGT gbl_cTask, 1
+1286  D030      	BRA	label189
+12E6  D7CD      	BRA	label183
+12E8            label189
+
+            if (cTask.TASK_INT_EXT2) {
+1288  A972      	BTFSS gbl_cTask,4, 1
+128A  D005      	BRA	label184
+1296            label184
+
+                // A DC fault occurred - show on display
+                showFault();
+128C  ECA7F003  	CALL showFault_00000
+
+                t1con.TMR1ON = 1; // Switch on the timer - will reset fault if it clears within 5 seconds
+1290  80CD      	BSF gbl_t1con,0
+
+                cTask.TASK_INT_EXT2 = 0;
+1292  9972      	BCF gbl_cTask,4, 1
+
+            } else if (cTask.TASK_INT_EXT0) {
+1294  D7F6      	BRA	label183
+1296  A172      	BTFSS gbl_cTask,0, 1
+1298  D004      	BRA	label185
+12A2            label185
+
+                // Power fail occurred
+                // When power supply is disconnected, save variables to EEPROM
+                saveData();
+129A  ECD6F007  	CALL saveData_00000
+
+                cTask.TASK_INT_EXT0 = 0;
+129E  9172      	BCF gbl_cTask,0, 1
+
+            } else if (cTask.TASK_TIMER1_MUTE) {
+12A0  D7F0      	BRA	label183
+12A2  AB72      	BTFSS gbl_cTask,5, 1
+12A4  D00A      	BRA	label186
+12BA            label186
+
+                // Mute and update display
+                doMute();
+12A6  EC35F009  	CALL doMute_00000
+
+                //sendRS232Status();
+                showVolume();
+12AA  ECCCF002  	CALL showVolume_00000
+
+                ledWrite();
+12AE  EC58F000  	CALL ledWrite_00000
+
+                // reset the timer
+                timer1Reset();
+12B2  EC92F005  	CALL timer1Rese_0001A
+
+                cTask.TASK_TIMER1_MUTE = 0;
+12B6  9B72      	BCF gbl_cTask,5, 1
+
+            } else if (cTask.TASK_TIMER1_FUNC) {
+12B8  D7E4      	BRA	label183
+12BA  AD72      	BTFSS gbl_cTask,6, 1
+12BC  D008      	BRA	label187
+12CE            label187
+
+                // enter function mode
+                iFunctionMode = 1;
+12BE  0E01      	MOVLW 0x01
+12C0  6F82      	MOVWF gbl_iFunctionMode, 1
+
+                // Show first function
+                functionDisplay();
+12C2  EC0FF004  	CALL functionDi_00022
+
+                // turn off the timer
+                timer1Reset();
+12C6  EC92F005  	CALL timer1Rese_0001A
+
+                cTask.TASK_TIMER1_FUNC = 0;
+12CA  9D72      	BCF gbl_cTask,6, 1
+
+            } else if (cTask.TASK_TIMER1) {
+12CC  D7DA      	BRA	label183
+12CE  AF72      	BTFSS gbl_cTask,7, 1
+12D0  D004      	BRA	label188
+12DA            label188
+
+                onTimer1(); // Timer 1 has finished counting
+12D2  EC9FF008  	CALL onTimer1_00000
+
+                cTask.TASK_TIMER1 = 0;
+12D6  9F72      	BCF gbl_cTask,7, 1
+
+            } else if (cTask.TASK_INT_EXT1) {
+12D8  D7D4      	BRA	label183
+12DA  A772      	BTFSS gbl_cTask,3, 1
+12DC  D7D2      	BRA	label183
+
+                rc5Process(); // IR sensor received a signal
+12DE  EC19F008  	CALL rc5Process_00000
+
+                IR_LED = 0; // Ensure LED is off
+12E2  9480      	BCF gbl_porta,2
+
+                cTask.TASK_INT_EXT1 = 0;
+12E4  9772      	BCF gbl_cTask,3, 1
+
+            //} else if (cTask.TASK_RS232) {
+            //    rs232CommandReceived();
+            //    cTask.TASK_RS232 = 0;
+            }
+        }
+        
+        // Poll for EXT_POWER
+        // if EXT_POWER is low (USB trigger high), iPower is off
+        // v1.1 and not previously powered on externally
+        if (!EXT_POWER && !iPower && !iPowerExternal) {
+12E8  BC83      	BTFSC gbl_portd,6
+12EA  D009      	BRA	label190
+12EC  677C      	TSTFSZ gbl_iPower, 1
+12EE  D007      	BRA	label190
+12F0  677D      	TSTFSZ gbl_iPowerExternal, 1
+12F2  D005      	BRA	label190
+12FE            label190
+
+            // Powered on by external appliance
+            iPowerExternal = 1;
+12F4  0E01      	MOVLW 0x01
+12F6  6F7D      	MOVWF gbl_iPowerExternal, 1
+
+            // set the input to the trigged input (input 1) = in2 on the tda7439
+            iActiveInput = 0;
+12F8  6B7E      	CLRF gbl_iActiveInput, 1
+
+            doPower();
+12FA  EC2FF007  	CALL doPower_00000
+
+        }
+        // if EXT_POWER is high (USB trigger low), iPower is on, and was powered on externally
+        // ..then power off
+        // This is done in a countdown timer - see onTimer1();
+        //if (EXT_POWER && iPower && iPowerExternal) {
+            // Powered off by external appliance
+            // don't power off if iPowerExternal is zero (i.e. powered on by IR)
+        //    doPower();
+        //}
+        // v1.1 If no external power signal, and power is off anyway, reset the iPowerExternal indicator
+        if (EXT_POWER && !iPower) {
+12FE  AC83      	BTFSS gbl_portd,6
+1300  D7C0      	BRA	label183
+1302  677C      	TSTFSZ gbl_iPower, 1
+1304  D7BE      	BRA	label183
+
+            iPowerExternal = 0;
+1306  6B7D      	CLRF gbl_iPowerExternal, 1
+
+        }
+    }
+} 
+
+
+////////////////////////////////////////
+// Code with no source :-)
+////////////////////////////////////////
+0000  EF85F009  	GOTO	_startup
+
+0008  EF3EF00A  	GOTO	interrupt
+000C            delay_us_00000
+000C            ; { delay_us ; function begin
+000C  0E01      	MOVLW 0x01
+000E  279B      	ADDWF delay_us_00000_arg_del, F, 1
+0010  339B      	RRCF delay_us_00000_arg_del, F, 1
+0012  0EFF      	MOVLW 0xFF
+0014  179B      	ANDWF delay_us_00000_arg_del, F, 1
+0016            label1
+0016  0000      	NOP
+0018  0000      	NOP
+001A  2F9B      	DECFSZ delay_us_00000_arg_del, F, 1
+001C  D7FC      	BRA	label1
+001E  0012      	RETURN
+0020            ; } delay_us function end
+
+0020            delay_ms_00000
+0020            ; { delay_ms ; function begin
+0020  5395      	MOVF delay_ms_00000_arg_del, F, 1
+0022  0000      	NOP
+0024  E101      	BNZ	label2
+0026  0012      	RETURN
+0028            label2
+0028  0EF9      	MOVLW 0xF9
+002A            label3
+002A  0000      	NOP
+002C  0000      	NOP
+002E  0000      	NOP
+0030  0000      	NOP
+0032  0000      	NOP
+0034  0000      	NOP
+0036  0FFF      	ADDLW 0xFF
+0038  A4D8      	BTFSS STATUS,Z
+003A  D7F7      	BRA	label3
+003C  0000      	NOP
+003E  0000      	NOP
+0040  0000      	NOP
+0042  0000      	NOP
+0044  0000      	NOP
+0046  0000      	NOP
+0048  0000      	NOP
+004A  2F95      	DECFSZ delay_ms_00000_arg_del, F, 1
+004C  D7ED      	BRA	label2
+004E  0012      	RETURN
+0050            ; } delay_ms function end
+
+0050            delay_s_00000
+0050            ; { delay_s ; function begin
+0050            label4
+0050  0EFA      	MOVLW 0xFA
+0052  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0054  EC10F000  	CALL delay_ms_00000
+0058  0EFA      	MOVLW 0xFA
+005A  6F95      	MOVWF delay_ms_00000_arg_del, 1
+005C  EC10F000  	CALL delay_ms_00000
+0060  0EFA      	MOVLW 0xFA
+0062  6F95      	MOVWF delay_ms_00000_arg_del, 1
+0064  EC10F000  	CALL delay_ms_00000
+0068  0EFA      	MOVLW 0xFA
+006A  6F95      	MOVWF delay_ms_00000_arg_del, 1
+006C  EC10F000  	CALL delay_ms_00000
+0070  2F94      	DECFSZ delay_s_00000_arg_del, F, 1
+0072  D7EE      	BRA	label4
+0074  0012      	RETURN
+0076            ; } delay_s function end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+130A            _startup
+
+1478  EF3FF009  	GOTO	main
+
+
+
+
+
+
+
+300000  8D08      	DW 0x8D08
+300002  1E1F      	DW 0x1E1F
+300004  80FF      	DW 0x80FF
+300006  FF80      	DW 0xFF80
+300008  C00F      	DW 0xC00F
+30000A  E00F      	DW 0xE00F
+30000C  400F      	DW 0x400F
