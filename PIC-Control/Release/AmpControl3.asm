@@ -2400,6 +2400,7 @@ label151
 	INCF doPower_00000_51_l, F, 1
 	BRA	label151
 label152
+	CALL writeVolum_0001E
 	CALL showInput_00000
 	CALL showVolume_00000
 	CALL ledWrite_00000
@@ -2415,7 +2416,7 @@ label154
 	RETURN
 ; } doPower function end
 
-	ORG 0x00000F84
+	ORG 0x00000F88
 doInputUp_00000
 ; { doInputUp ; function begin
 	MOVLB 0x00
@@ -2431,7 +2432,7 @@ label156
 	RETURN
 ; } doInputUp function end
 
-	ORG 0x00000F98
+	ORG 0x00000F9C
 doInputDow_00020
 ; { doInputDown ; function begin
 	MOVLB 0x00
@@ -2446,7 +2447,7 @@ label157
 	RETURN
 ; } doInputDown function end
 
-	ORG 0x00000FAC
+	ORG 0x00000FB0
 saveData_00000
 ; { saveData ; function begin
 	MOVLB 0x00
@@ -2507,7 +2508,7 @@ saveData_00000
 	RETURN
 ; } saveData function end
 
-	ORG 0x00001032
+	ORG 0x00001036
 rc5Process_00000
 ; { rc5Process ; function begin
 	BCF gbl_porta,2
@@ -2651,7 +2652,7 @@ label177
 	RETURN
 ; } rc5Process function end
 
-	ORG 0x0000113E
+	ORG 0x00001142
 onTimer1_00000
 ; { onTimer1 ; function begin
 	MOVLB 0x00
@@ -2733,7 +2734,7 @@ label182
 	RETURN
 ; } onTimer1 function end
 
-	ORG 0x000011E2
+	ORG 0x000011E6
 initialise_00000
 ; { initialise ; function begin
 	CLRF gbl_trisa
@@ -2799,7 +2800,7 @@ initialise_00000
 	RETURN
 ; } initialise function end
 
-	ORG 0x0000126A
+	ORG 0x0000126E
 doMute_00000
 ; { doMute ; function begin
 	MOVLB 0x00
@@ -2813,7 +2814,7 @@ doMute_00000
 	RETURN
 ; } doMute function end
 
-	ORG 0x0000127E
+	ORG 0x00001282
 main
 ; { main ; function begin
 	CALL initialise_00000
@@ -2884,7 +2885,7 @@ label190
 	BRA	label183
 ; } main function end
 
-	ORG 0x0000130A
+	ORG 0x0000130E
 _startup
 	MOVLB 0x00
 	CLRF gbl_cTask, 1
@@ -3070,7 +3071,7 @@ _startup
 	CLRF gbl_rc5_address, 1
 	CLRF gbl_rc5_command, 1
 	GOTO	main
-	ORG 0x0000147C
+	ORG 0x00001480
 interrupt
 ; { interrupt ; function begin
 	MOVFF FSR0H,  Int1Context

@@ -3,8 +3,9 @@ Target=PIC18F4455
 Active Compiler=BoostC
 Type=0
 Warnings=2
-Active Directory=Z:\home\dan\PIC\LM3886-Amp-Control\PIC-Control\
+Active Directory=Z:\home\dan\GIT\LM3886-Amp-Control\PIC-Control\
 Active Config=Release
+Config=0
 [Files]
 File0=AmpControl3.c
 Count=4

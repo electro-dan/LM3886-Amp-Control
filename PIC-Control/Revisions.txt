@@ -21,8 +21,8 @@ For new PIC and circuit boards
 - TODO: PIC reduced power consumption
    - INTOSC used to set low speed clock
      - IRCF2:IRCF0 : 110 = 4 MHz
-   - RC_RUN mode - SCS1:SCS0 bits set to ‘10’
-   - PRI_RUN - SCS1:SCS0 bits set to ‘00’
+   - RC_RUN mode - SCS1:SCS0 bits set to ï¿½10ï¿½
+   - PRI_RUN - SCS1:SCS0 bits set to ï¿½00ï¿½
 - TODO: Adjust relay pins
 
 v2.0 2nd Apr 2018
@@ -48,6 +48,9 @@ v2.3.4 15th Oct 2018 [live]
 v2.4 18th Mar 2019
 - Added delay before input relays/triggers close
 - Renamed inputs
+
+v2.5 3rd Mar 2024
+- Added second write of volume during power on (very occasionally first write not applied due to intererence)
 
 Fix list:
 x Not reponding to DC fail

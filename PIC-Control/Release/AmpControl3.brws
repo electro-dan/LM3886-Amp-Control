@@ -1177,12 +1177,12 @@ ddrc	C:\Program Files\SourceBoost\Include\pic18F4455.h	1381;"	v
 ddrd	C:\Program Files\SourceBoost\Include\pic18F4455.h	1383;"	v
 ddre	C:\Program Files\SourceBoost\Include\pic18F4455.h	1385;"	v
 displayASCIItoSeg	AmpControl3.h	140;"	v
-doInputDown	AmpControl3.c	844;"	f
-doInputUp	AmpControl3.c	852;"	f
-doMute	AmpControl3.c	659;"	f
+doInputDown	AmpControl3.c	846;"	f
+doInputUp	AmpControl3.c	854;"	f
+doMute	AmpControl3.c	661;"	f
 doPower	AmpControl3.c	543;"	f
-doVolumeDown	AmpControl3.c	647;"	f
-doVolumeUp	AmpControl3.c	635;"	f
+doVolumeDown	AmpControl3.c	649;"	f
+doVolumeUp	AmpControl3.c	637;"	f
 eccp1as	C:\Program Files\SourceBoost\Include\pic18F4455.h	1410;"	v
 eccp1con	C:\Program Files\SourceBoost\Include\pic18F4455.h	1420;"	v
 eccp1del	C:\Program Files\SourceBoost\Include\pic18F4455.h	1412;"	v
@@ -1198,15 +1198,15 @@ fsr1h	C:\Program Files\SourceBoost\Include\pic18F4455.h	1459;"	v
 fsr1l	C:\Program Files\SourceBoost\Include\pic18F4455.h	1458;"	v
 fsr2h	C:\Program Files\SourceBoost\Include\pic18F4455.h	1451;"	v
 fsr2l	C:\Program Files\SourceBoost\Include\pic18F4455.h	1450;"	v
-functionDisplay	AmpControl3.c	1006;"	f
-functionDown	AmpControl3.c	1183;"	f
-functionLower	AmpControl3.c	1124;"	f
-functionRaise	AmpControl3.c	1075;"	f
-functionUp	AmpControl3.c	1173;"	f
-functionValueDisplay	AmpControl3.c	956;"	f
-functionValueLower	AmpControl3.c	1069;"	f
-functionValueRaise	AmpControl3.c	1063;"	f
-getAdjustedVolume	AmpControl3.c	938;"	f
+functionDisplay	AmpControl3.c	1008;"	f
+functionDown	AmpControl3.c	1185;"	f
+functionLower	AmpControl3.c	1126;"	f
+functionRaise	AmpControl3.c	1077;"	f
+functionUp	AmpControl3.c	1175;"	f
+functionValueDisplay	AmpControl3.c	958;"	f
+functionValueLower	AmpControl3.c	1071;"	f
+functionValueRaise	AmpControl3.c	1065;"	f
+getAdjustedVolume	AmpControl3.c	940;"	f
 hlvdcon	C:\Program Files\SourceBoost\Include\pic18F4455.h	1443;"	v
 iActiveInput	AmpControl3.h	77;"	v
 iCentreAdjust	AmpControl3.h	72;"	v
@@ -1260,9 +1260,9 @@ ledSetup	AmpControl3.c	432;"	f
 ledTest	AmpControl3.c	424;"	f
 ledWrite	AmpControl3.c	495;"	f
 lvdcon	C:\Program Files\SourceBoost\Include\pic18F4455.h	1444;"	v
-main	AmpControl3.c	1541;"	f
+main	AmpControl3.c	1543;"	f
 nop	C:\Program Files\SourceBoost\Include\boostc.h	59;"	f
-onTimer1	AmpControl3.c	1491;"	f
+onTimer1	AmpControl3.c	1493;"	f
 osccon	C:\Program Files\SourceBoost\Include\pic18F4455.h	1445;"	v
 osctune	C:\Program Files\SourceBoost\Include\pic18F4455.h	1387;"	v
 pc	C:\Program Files\SourceBoost\Include\pic18F4455.h	1484;"	v
@@ -1291,11 +1291,11 @@ pr2	C:\Program Files\SourceBoost\Include\pic18F4455.h	1436;"	v
 preinc0	C:\Program Files\SourceBoost\Include\pic18F4455.h	1469;"	v
 preinc1	C:\Program Files\SourceBoost\Include\pic18F4455.h	1461;"	v
 preinc2	C:\Program Files\SourceBoost\Include\pic18F4455.h	1453;"	v
-printMute	AmpControl3.c	772;"	f
+printMute	AmpControl3.c	774;"	f
 prod	C:\Program Files\SourceBoost\Include\pic18F4455.h	1476;"	v
 prodh	C:\Program Files\SourceBoost\Include\pic18F4455.h	1478;"	v
 prodl	C:\Program Files\SourceBoost\Include\pic18F4455.h	1477;"	v
-rc5Process	AmpControl3.c	1196;"	f
+rc5Process	AmpControl3.c	1198;"	f
 rc5_Held	AmpControl3.h	307;"	v
 rc5_address	AmpControl3.h	323;"	v
 rc5_bitCount	AmpControl3.h	309;"	v
@@ -1319,9 +1319,9 @@ reset	C:\Program Files\SourceBoost\Include\boostc.h	77;"	f
 reset	C:\Program Files\SourceBoost\Include\boostc.h	85;"	f
 saveData	AmpControl3.c	312;"	f
 set_bit	C:\Program Files\SourceBoost\Include\boostc.h	23;"	d
-showFault	AmpControl3.c	765;"	f
-showInput	AmpControl3.c	744;"	f
-showVolume	AmpControl3.c	668;"	f
+showFault	AmpControl3.c	767;"	f
+showInput	AmpControl3.c	746;"	f
+showVolume	AmpControl3.c	670;"	f
 sleep	C:\Program Files\SourceBoost\Include\boostc.h	69;"	f
 spbrg	C:\Program Files\SourceBoost\Include\pic18F4455.h	1402;"	v
 spbrgh	C:\Program Files\SourceBoost\Include\pic18F4455.h	1403;"	v
@@ -1395,5 +1395,5 @@ uir	C:\Program Files\SourceBoost\Include\pic18F4455.h	1343;"	v
 ustat	C:\Program Files\SourceBoost\Include\pic18F4455.h	1347;"	v
 wdtcon	C:\Program Files\SourceBoost\Include\pic18F4455.h	1442;"	v
 wreg	C:\Program Files\SourceBoost\Include\pic18F4455.h	1465;"	v
-writeRelay	AmpControl3.c	780;"	f
-writeVolumes	AmpControl3.c	863;"	f
+writeRelay	AmpControl3.c	782;"	f
+writeVolumes	AmpControl3.c	865;"	f

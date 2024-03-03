@@ -6,9 +6,9 @@
 ;/////////////////////////////////////////////////////////////////////////////////
 
 	ORG 0x00000000
-0000  EF85F009  	GOTO	_startup
+0000  EF87F009  	GOTO	_startup
 	ORG 0x00000008
-0008  EF3EF00A  	GOTO	interrupt
+0008  EF40F00A  	GOTO	interrupt
 	ORG 0x0000000C
 000C            delay_us_00000
 000C            ; { delay_us ; function begin
@@ -2112,884 +2112,885 @@
 0F62  2B94      	INCF doPower_00000_51_l, F, 1
 0F64  D7EF      	BRA	label151
 0F66            label152
-0F66  EC45F003  	CALL showInput_00000
-0F6A  ECCCF002  	CALL showVolume_00000
-0F6E  EC58F000  	CALL ledWrite_00000
-0F72  B481      	BTFSC gbl_portb,2
-0F74  D004      	BRA	label153
-0F76  ECA7F003  	CALL showFault_00000
-0F7A  6B7C      	CLRF gbl_iPower, 1
-0F7C  D001      	BRA	label154
-0F7E            label153
-0F7E  8280      	BSF gbl_porta,1
-0F80            label154
-0F80  80CD      	BSF gbl_t1con,0
-0F82  0012      	RETURN
-0F84            ; } doPower function end
+0F66  ECDDF001  	CALL writeVolum_0001E
+0F6A  EC45F003  	CALL showInput_00000
+0F6E  ECCCF002  	CALL showVolume_00000
+0F72  EC58F000  	CALL ledWrite_00000
+0F76  B481      	BTFSC gbl_portb,2
+0F78  D004      	BRA	label153
+0F7A  ECA7F003  	CALL showFault_00000
+0F7E  6B7C      	CLRF gbl_iPower, 1
+0F80  D001      	BRA	label154
+0F82            label153
+0F82  8280      	BSF gbl_porta,1
+0F84            label154
+0F84  80CD      	BSF gbl_t1con,0
+0F86  0012      	RETURN
+0F88            ; } doPower function end
 
-	ORG 0x00000F84
-0F84            doInputUp_00000
-0F84            ; { doInputUp ; function begin
-0F84  0100      	MOVLB 0x00
-0F86  2B7E      	INCF gbl_iActiveInput, F, 1
-0F88  0E04      	MOVLW 0x04
-0F8A  617E      	CPFSLT gbl_iActiveInput, 1
-0F8C  D001      	BRA	label155
-0F8E  D001      	BRA	label156
-0F90            label155
-0F90  6B7E      	CLRF gbl_iActiveInput, 1
-0F92            label156
-0F92  EC89F002  	CALL writeRelay_00000
-0F96  0012      	RETURN
-0F98            ; } doInputUp function end
+	ORG 0x00000F88
+0F88            doInputUp_00000
+0F88            ; { doInputUp ; function begin
+0F88  0100      	MOVLB 0x00
+0F8A  2B7E      	INCF gbl_iActiveInput, F, 1
+0F8C  0E04      	MOVLW 0x04
+0F8E  617E      	CPFSLT gbl_iActiveInput, 1
+0F90  D001      	BRA	label155
+0F92  D001      	BRA	label156
+0F94            label155
+0F94  6B7E      	CLRF gbl_iActiveInput, 1
+0F96            label156
+0F96  EC89F002  	CALL writeRelay_00000
+0F9A  0012      	RETURN
+0F9C            ; } doInputUp function end
 
-	ORG 0x00000F98
-0F98            doInputDow_00020
-0F98            ; { doInputDown ; function begin
-0F98  0100      	MOVLB 0x00
-0F9A  077E      	DECF gbl_iActiveInput, F, 1
-0F9C  0E04      	MOVLW 0x04
-0F9E  657E      	CPFSGT gbl_iActiveInput, 1
-0FA0  D002      	BRA	label157
-0FA2  0E03      	MOVLW 0x03
-0FA4  6F7E      	MOVWF gbl_iActiveInput, 1
-0FA6            label157
-0FA6  EC89F002  	CALL writeRelay_00000
-0FAA  0012      	RETURN
-0FAC            ; } doInputDown function end
+	ORG 0x00000F9C
+0F9C            doInputDow_00020
+0F9C            ; { doInputDown ; function begin
+0F9C  0100      	MOVLB 0x00
+0F9E  077E      	DECF gbl_iActiveInput, F, 1
+0FA0  0E04      	MOVLW 0x04
+0FA2  657E      	CPFSGT gbl_iActiveInput, 1
+0FA4  D002      	BRA	label157
+0FA6  0E03      	MOVLW 0x03
+0FA8  6F7E      	MOVWF gbl_iActiveInput, 1
+0FAA            label157
+0FAA  EC89F002  	CALL writeRelay_00000
+0FAE  0012      	RETURN
+0FB0            ; } doInputDown function end
 
-	ORG 0x00000FAC
-0FAC            saveData_00000
-0FAC            ; { saveData ; function begin
-0FAC  0100      	MOVLB 0x00
-0FAE  6B93      	CLRF eepromWrit_0001B_arg_address, 1
-0FB0  0E0A      	MOVLW 0x0A
-0FB2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FB4  ECF9F006  	CALL eepromWrit_0001B
-0FB8  0E01      	MOVLW 0x01
-0FBA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FBC  5173      	MOVF gbl_iVolume, W, 1
-0FBE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FC0  ECF9F006  	CALL eepromWrit_0001B
-0FC4  0E02      	MOVLW 0x02
-0FC6  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FC8  5177      	MOVF gbl_iFrontBalance, W, 1
-0FCA  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FCC  ECF9F006  	CALL eepromWrit_0001B
-0FD0  0E03      	MOVLW 0x03
-0FD2  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FD4  5178      	MOVF gbl_iRearBalance, W, 1
-0FD6  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FD8  ECF9F006  	CALL eepromWrit_0001B
-0FDC  0E04      	MOVLW 0x04
-0FDE  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FE0  5179      	MOVF gbl_iRearAdjust, W, 1
-0FE2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FE4  ECF9F006  	CALL eepromWrit_0001B
-0FE8  0E05      	MOVLW 0x05
-0FEA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FEC  517A      	MOVF gbl_iCentreAdjust, W, 1
-0FEE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FF0  ECF9F006  	CALL eepromWrit_0001B
-0FF4  0E06      	MOVLW 0x06
-0FF6  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-0FF8  517B      	MOVF gbl_iSubAdjust, W, 1
-0FFA  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-0FFC  ECF9F006  	CALL eepromWrit_0001B
-1000  0E07      	MOVLW 0x07
-1002  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-1004  517E      	MOVF gbl_iActiveInput, W, 1
-1006  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-1008  ECF9F006  	CALL eepromWrit_0001B
-100C  0E08      	MOVLW 0x08
-100E  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-1010  5180      	MOVF gbl_iSurroundMode, W, 1
-1012  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-1014  ECF9F006  	CALL eepromWrit_0001B
-1018  0E09      	MOVLW 0x09
-101A  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-101C  5181      	MOVF gbl_iExtSurroundMode, W, 1
-101E  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-1020  ECF9F006  	CALL eepromWrit_0001B
-1024  0E0A      	MOVLW 0x0A
-1026  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
-1028  517F      	MOVF gbl_iTrigger, W, 1
-102A  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
-102C  ECF9F006  	CALL eepromWrit_0001B
-1030  0012      	RETURN
-1032            ; } saveData function end
+	ORG 0x00000FB0
+0FB0            saveData_00000
+0FB0            ; { saveData ; function begin
+0FB0  0100      	MOVLB 0x00
+0FB2  6B93      	CLRF eepromWrit_0001B_arg_address, 1
+0FB4  0E0A      	MOVLW 0x0A
+0FB6  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FB8  ECF9F006  	CALL eepromWrit_0001B
+0FBC  0E01      	MOVLW 0x01
+0FBE  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FC0  5173      	MOVF gbl_iVolume, W, 1
+0FC2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FC4  ECF9F006  	CALL eepromWrit_0001B
+0FC8  0E02      	MOVLW 0x02
+0FCA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FCC  5177      	MOVF gbl_iFrontBalance, W, 1
+0FCE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FD0  ECF9F006  	CALL eepromWrit_0001B
+0FD4  0E03      	MOVLW 0x03
+0FD6  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FD8  5178      	MOVF gbl_iRearBalance, W, 1
+0FDA  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FDC  ECF9F006  	CALL eepromWrit_0001B
+0FE0  0E04      	MOVLW 0x04
+0FE2  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FE4  5179      	MOVF gbl_iRearAdjust, W, 1
+0FE6  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FE8  ECF9F006  	CALL eepromWrit_0001B
+0FEC  0E05      	MOVLW 0x05
+0FEE  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FF0  517A      	MOVF gbl_iCentreAdjust, W, 1
+0FF2  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+0FF4  ECF9F006  	CALL eepromWrit_0001B
+0FF8  0E06      	MOVLW 0x06
+0FFA  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+0FFC  517B      	MOVF gbl_iSubAdjust, W, 1
+0FFE  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1000  ECF9F006  	CALL eepromWrit_0001B
+1004  0E07      	MOVLW 0x07
+1006  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1008  517E      	MOVF gbl_iActiveInput, W, 1
+100A  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+100C  ECF9F006  	CALL eepromWrit_0001B
+1010  0E08      	MOVLW 0x08
+1012  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1014  5180      	MOVF gbl_iSurroundMode, W, 1
+1016  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1018  ECF9F006  	CALL eepromWrit_0001B
+101C  0E09      	MOVLW 0x09
+101E  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+1020  5181      	MOVF gbl_iExtSurroundMode, W, 1
+1022  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1024  ECF9F006  	CALL eepromWrit_0001B
+1028  0E0A      	MOVLW 0x0A
+102A  6F93      	MOVWF eepromWrit_0001B_arg_address, 1
+102C  517F      	MOVF gbl_iTrigger, W, 1
+102E  6F94      	MOVWF eepromWrit_0001B_arg_data, 1
+1030  ECF9F006  	CALL eepromWrit_0001B
+1034  0012      	RETURN
+1036            ; } saveData function end
 
-	ORG 0x00001032
-1032            rc5Process_00000
-1032            ; { rc5Process ; function begin
-1032  9480      	BCF gbl_porta,2
-1034  0100      	MOVLB 0x00
-1036  6B93      	CLRF rc5Process_00000_1_iGotCommand, 1
-1038  5391      	MOVF gbl_rc5_address, F, 1
-103A  A4D8      	BTFSS STATUS,Z
-103C  0012      	RETURN
-103E  537C      	MOVF gbl_iPower, F, 1
-1040  B4D8      	BTFSC STATUS,Z
-1042  D061      	BRA	label175
-1044  0E0D      	MOVLW 0x0D
-1046  6392      	CPFSEQ gbl_rc5_command, 1
-1048  D001      	BRA	label158
-104A  D010      	BRA	label162
-104C            label158
-104C  0E10      	MOVLW 0x10
-104E  6392      	CPFSEQ gbl_rc5_command, 1
-1050  D001      	BRA	label159
-1052  D02A      	BRA	label167
-1054            label159
-1054  0E11      	MOVLW 0x11
-1056  6392      	CPFSEQ gbl_rc5_command, 1
-1058  D001      	BRA	label160
-105A  D030      	BRA	label169
-105C            label160
-105C  0E20      	MOVLW 0x20
-105E  6392      	CPFSEQ gbl_rc5_command, 1
-1060  D001      	BRA	label161
-1062  D036      	BRA	label171
-1064            label161
-1064  0E21      	MOVLW 0x21
-1066  6392      	CPFSEQ gbl_rc5_command, 1
-1068  D04E      	BRA	label175
-106A  D040      	BRA	label173
-106C            label162
-106C  518F      	MOVF gbl_rc5_flickBit, W, 1
-106E  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
-1070  638F      	CPFSEQ gbl_rc5_flickBit, 1
-1072  D00E      	BRA	label164
-1074  6B75      	CLRF gbl_iMuteHeld, 1
-1076  5382      	MOVF gbl_iFunctionMode, F, 1
-1078  E105      	BNZ	label163
-107A  EC92F005  	CALL timer1Rese_0001A
-107E  0E01      	MOVLW 0x01
-1080  6F76      	MOVWF gbl_iMuteWasPressed, 1
-1082  D041      	BRA	label175
-1084            label163
-1084  6B82      	CLRF gbl_iFunctionMode, 1
-1086  0E01      	MOVLW 0x01
-1088  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
-108A  EC92F005  	CALL timer1Rese_0001A
-108E  D03B      	BRA	label175
-1090            label164
-1090  2B75      	INCF gbl_iMuteHeld, F, 1
-1092  EC92F005  	CALL timer1Rese_0001A
-1096  0E09      	MOVLW 0x09
-1098  6175      	CPFSLT gbl_iMuteHeld, 1
-109A  D001      	BRA	label165
-109C  D003      	BRA	label166
-109E            label165
-109E  6B76      	CLRF gbl_iMuteWasPressed, 1
-10A0  8D72      	BSF gbl_cTask,6, 1
-10A2  D031      	BRA	label175
-10A4            label166
-10A4  80CD      	BSF gbl_t1con,0
-10A6  D02F      	BRA	label175
-10A8            label167
-10A8  5382      	MOVF gbl_iFunctionMode, F, 1
-10AA  E105      	BNZ	label168
-10AC  0E01      	MOVLW 0x01
-10AE  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
-10B0  EC0FF007  	CALL doVolumeUp_00000
-10B4  D028      	BRA	label175
-10B6            label168
-10B6  EC17F006  	CALL functionRa_00024
-10BA  D025      	BRA	label175
-10BC            label169
-10BC  5382      	MOVF gbl_iFunctionMode, F, 1
-10BE  E105      	BNZ	label170
-10C0  0E01      	MOVLW 0x01
-10C2  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
-10C4  EC1FF007  	CALL doVolumeDo_00029
-10C8  D01E      	BRA	label175
-10CA            label170
-10CA  EC83F006  	CALL functionLo_00026
-10CE  D01B      	BRA	label175
-10D0            label171
-10D0  518F      	MOVF gbl_rc5_flickBit, W, 1
-10D2  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
-10D4  638F      	CPFSEQ gbl_rc5_flickBit, 1
-10D6  D017      	BRA	label175
-10D8  5382      	MOVF gbl_iFunctionMode, F, 1
-10DA  E105      	BNZ	label172
-10DC  0E01      	MOVLW 0x01
-10DE  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
-10E0  ECC2F007  	CALL doInputUp_00000
-10E4  D010      	BRA	label175
-10E6            label172
-10E6  EC0DF006  	CALL functionUp_00000
-10EA  D00D      	BRA	label175
-10EC            label173
-10EC  518F      	MOVF gbl_rc5_flickBit, W, 1
-10EE  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
-10F0  638F      	CPFSEQ gbl_rc5_flickBit, 1
-10F2  D009      	BRA	label175
-10F4  5382      	MOVF gbl_iFunctionMode, F, 1
-10F6  E105      	BNZ	label174
-10F8  0E01      	MOVLW 0x01
-10FA  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
-10FC  ECCCF007  	CALL doInputDow_00020
-1100  D002      	BRA	label175
-1102            label174
-1102  ECEFF006  	CALL functionDo_00028
-1106            label175
-1106  0E0C      	MOVLW 0x0C
-1108  6392      	CPFSEQ gbl_rc5_command, 1
-110A  D007      	BRA	label176
-110C  518F      	MOVF gbl_rc5_flickBit, W, 1
-110E  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
-1110  638F      	CPFSEQ gbl_rc5_flickBit, 1
-1112  D003      	BRA	label176
-1114  6B82      	CLRF gbl_iFunctionMode, 1
-1116  EC2FF007  	CALL doPower_00000
-111A            label176
-111A  518F      	MOVF gbl_rc5_flickBit, W, 1
-111C  6F90      	MOVWF gbl_rc5_flickBitOld, 1
-111E  537C      	MOVF gbl_iPower, F, 1
-1120  B4D8      	BTFSC STATUS,Z
-1122  0012      	RETURN
-1124  5393      	MOVF rc5Process_00000_1_iGotCommand, F, 1
-1126  E007      	BZ	label177
-1128  EC45F003  	CALL showInput_00000
-112C  ECCCF002  	CALL showVolume_00000
-1130  EC58F000  	CALL ledWrite_00000
-1134  0012      	RETURN
-1136            label177
-1136  5382      	MOVF gbl_iFunctionMode, F, 1
-1138  A4D8      	BTFSS STATUS,Z
-113A  6B84      	CLRF gbl_iTimer1SecCounts, 1
-113C  0012      	RETURN
-113E            ; } rc5Process function end
+	ORG 0x00001036
+1036            rc5Process_00000
+1036            ; { rc5Process ; function begin
+1036  9480      	BCF gbl_porta,2
+1038  0100      	MOVLB 0x00
+103A  6B93      	CLRF rc5Process_00000_1_iGotCommand, 1
+103C  5391      	MOVF gbl_rc5_address, F, 1
+103E  A4D8      	BTFSS STATUS,Z
+1040  0012      	RETURN
+1042  537C      	MOVF gbl_iPower, F, 1
+1044  B4D8      	BTFSC STATUS,Z
+1046  D061      	BRA	label175
+1048  0E0D      	MOVLW 0x0D
+104A  6392      	CPFSEQ gbl_rc5_command, 1
+104C  D001      	BRA	label158
+104E  D010      	BRA	label162
+1050            label158
+1050  0E10      	MOVLW 0x10
+1052  6392      	CPFSEQ gbl_rc5_command, 1
+1054  D001      	BRA	label159
+1056  D02A      	BRA	label167
+1058            label159
+1058  0E11      	MOVLW 0x11
+105A  6392      	CPFSEQ gbl_rc5_command, 1
+105C  D001      	BRA	label160
+105E  D030      	BRA	label169
+1060            label160
+1060  0E20      	MOVLW 0x20
+1062  6392      	CPFSEQ gbl_rc5_command, 1
+1064  D001      	BRA	label161
+1066  D036      	BRA	label171
+1068            label161
+1068  0E21      	MOVLW 0x21
+106A  6392      	CPFSEQ gbl_rc5_command, 1
+106C  D04E      	BRA	label175
+106E  D040      	BRA	label173
+1070            label162
+1070  518F      	MOVF gbl_rc5_flickBit, W, 1
+1072  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+1074  638F      	CPFSEQ gbl_rc5_flickBit, 1
+1076  D00E      	BRA	label164
+1078  6B75      	CLRF gbl_iMuteHeld, 1
+107A  5382      	MOVF gbl_iFunctionMode, F, 1
+107C  E105      	BNZ	label163
+107E  EC92F005  	CALL timer1Rese_0001A
+1082  0E01      	MOVLW 0x01
+1084  6F76      	MOVWF gbl_iMuteWasPressed, 1
+1086  D041      	BRA	label175
+1088            label163
+1088  6B82      	CLRF gbl_iFunctionMode, 1
+108A  0E01      	MOVLW 0x01
+108C  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+108E  EC92F005  	CALL timer1Rese_0001A
+1092  D03B      	BRA	label175
+1094            label164
+1094  2B75      	INCF gbl_iMuteHeld, F, 1
+1096  EC92F005  	CALL timer1Rese_0001A
+109A  0E09      	MOVLW 0x09
+109C  6175      	CPFSLT gbl_iMuteHeld, 1
+109E  D001      	BRA	label165
+10A0  D003      	BRA	label166
+10A2            label165
+10A2  6B76      	CLRF gbl_iMuteWasPressed, 1
+10A4  8D72      	BSF gbl_cTask,6, 1
+10A6  D031      	BRA	label175
+10A8            label166
+10A8  80CD      	BSF gbl_t1con,0
+10AA  D02F      	BRA	label175
+10AC            label167
+10AC  5382      	MOVF gbl_iFunctionMode, F, 1
+10AE  E105      	BNZ	label168
+10B0  0E01      	MOVLW 0x01
+10B2  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+10B4  EC0FF007  	CALL doVolumeUp_00000
+10B8  D028      	BRA	label175
+10BA            label168
+10BA  EC17F006  	CALL functionRa_00024
+10BE  D025      	BRA	label175
+10C0            label169
+10C0  5382      	MOVF gbl_iFunctionMode, F, 1
+10C2  E105      	BNZ	label170
+10C4  0E01      	MOVLW 0x01
+10C6  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+10C8  EC1FF007  	CALL doVolumeDo_00029
+10CC  D01E      	BRA	label175
+10CE            label170
+10CE  EC83F006  	CALL functionLo_00026
+10D2  D01B      	BRA	label175
+10D4            label171
+10D4  518F      	MOVF gbl_rc5_flickBit, W, 1
+10D6  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+10D8  638F      	CPFSEQ gbl_rc5_flickBit, 1
+10DA  D017      	BRA	label175
+10DC  5382      	MOVF gbl_iFunctionMode, F, 1
+10DE  E105      	BNZ	label172
+10E0  0E01      	MOVLW 0x01
+10E2  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+10E4  ECC4F007  	CALL doInputUp_00000
+10E8  D010      	BRA	label175
+10EA            label172
+10EA  EC0DF006  	CALL functionUp_00000
+10EE  D00D      	BRA	label175
+10F0            label173
+10F0  518F      	MOVF gbl_rc5_flickBit, W, 1
+10F2  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+10F4  638F      	CPFSEQ gbl_rc5_flickBit, 1
+10F6  D009      	BRA	label175
+10F8  5382      	MOVF gbl_iFunctionMode, F, 1
+10FA  E105      	BNZ	label174
+10FC  0E01      	MOVLW 0x01
+10FE  6F93      	MOVWF rc5Process_00000_1_iGotCommand, 1
+1100  ECCEF007  	CALL doInputDow_00020
+1104  D002      	BRA	label175
+1106            label174
+1106  ECEFF006  	CALL functionDo_00028
+110A            label175
+110A  0E0C      	MOVLW 0x0C
+110C  6392      	CPFSEQ gbl_rc5_command, 1
+110E  D007      	BRA	label176
+1110  518F      	MOVF gbl_rc5_flickBit, W, 1
+1112  6390      	CPFSEQ gbl_rc5_flickBitOld, 1
+1114  638F      	CPFSEQ gbl_rc5_flickBit, 1
+1116  D003      	BRA	label176
+1118  6B82      	CLRF gbl_iFunctionMode, 1
+111A  EC2FF007  	CALL doPower_00000
+111E            label176
+111E  518F      	MOVF gbl_rc5_flickBit, W, 1
+1120  6F90      	MOVWF gbl_rc5_flickBitOld, 1
+1122  537C      	MOVF gbl_iPower, F, 1
+1124  B4D8      	BTFSC STATUS,Z
+1126  0012      	RETURN
+1128  5393      	MOVF rc5Process_00000_1_iGotCommand, F, 1
+112A  E007      	BZ	label177
+112C  EC45F003  	CALL showInput_00000
+1130  ECCCF002  	CALL showVolume_00000
+1134  EC58F000  	CALL ledWrite_00000
+1138  0012      	RETURN
+113A            label177
+113A  5382      	MOVF gbl_iFunctionMode, F, 1
+113C  A4D8      	BTFSS STATUS,Z
+113E  6B84      	CLRF gbl_iTimer1SecCounts, 1
+1140  0012      	RETURN
+1142            ; } rc5Process function end
 
-	ORG 0x0000113E
-113E            onTimer1_00000
-113E            ; { onTimer1 ; function begin
-113E  0100      	MOVLB 0x00
-1140  2B84      	INCF gbl_iTimer1SecCounts, F, 1
-1142  0E1E      	MOVLW 0x1E
-1144  6184      	CPFSLT gbl_iTimer1SecCounts, 1
-1146  D001      	BRA	label178
-1148  D00F      	BRA	label180
-114A            label178
-114A  537C      	MOVF gbl_iPower, F, 1
-114C  E00C      	BZ	label179
-114E  A481      	BTFSS gbl_portb,2
-1150  D00A      	BRA	label179
-1152  8280      	BSF gbl_porta,1
-1154  9680      	BCF gbl_porta,3
-1156  8A80      	BSF gbl_porta,5
-1158  6B82      	CLRF gbl_iFunctionMode, 1
-115A  ECCCF002  	CALL showVolume_00000
-115E  EC45F003  	CALL showInput_00000
-1162  EC58F000  	CALL ledWrite_00000
-1166            label179
-1166  6B84      	CLRF gbl_iTimer1SecCounts, 1
-1168            label180
-1168  AC83      	BTFSS gbl_portd,6
-116A  D02E      	BRA	label182
-116C  537C      	MOVF gbl_iPower, F, 1
-116E  E02C      	BZ	label182
-1170  537D      	MOVF gbl_iPowerExternal, F, 1
-1172  E02A      	BZ	label182
-1174  5385      	MOVF gbl_iTimer1OffCount, F, 1
-1176  E105      	BNZ	label181
-1178  0E0A      	MOVLW 0x0A
-117A  6F85      	MOVWF gbl_iTimer1OffCount, 1
-117C  EC2FF007  	CALL doPower_00000
-1180  0012      	RETURN
-1182            label181
-1182  0785      	DECF gbl_iTimer1OffCount, F, 1
-1184  0E01      	MOVLW 0x01
-1186  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
-1188  0E20      	MOVLW 0x20
-118A  6F9F      	MOVWF CompTempVar713+D'3', 1
-118C  6FA2      	MOVWF CompTempVar713+D'6', 1
-118E  0E49      	MOVLW 0x49
-1190  6FA0      	MOVWF CompTempVar713+D'4', 1
-1192  0E4F      	MOVLW 0x4F
-1194  6F9C      	MOVWF CompTempVar713, 1
-1196  0E66      	MOVLW 0x66
-1198  6F9D      	MOVWF CompTempVar713+D'1', 1
-119A  6F9E      	MOVWF CompTempVar713+D'2', 1
-119C  0E6E      	MOVLW 0x6E
-119E  6FA1      	MOVWF CompTempVar713+D'5', 1
-11A0  6BA3      	CLRF CompTempVar713+D'7', 1
-11A2  0E00      	MOVLW HIGH(CompTempVar713+D'0')
-11A4  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
-11A6  0E9C      	MOVLW LOW(CompTempVar713+D'0')
-11A8  6F9A      	MOVWF ledPrint_00000_arg_s, 1
-11AA  EC81F000  	CALL ledPrint_00000
-11AE  0E01      	MOVLW 0x01
-11B0  6F86      	MOVWF gbl_ledCurrentLine, 1
-11B2  0E07      	MOVLW 0x07
-11B4  6F87      	MOVWF gbl_ledCurrentCol, 1
-11B6  0E30      	MOVLW 0x30
-11B8  2585      	ADDWF gbl_iTimer1OffCount, W, 1
-11BA  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
-11BC  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
-11BE  ECE0F000  	CALL ledChar_00000
-11C2  EC58F000  	CALL ledWrite_00000
-11C6  0012      	RETURN
-11C8            label182
-11C8  0E0A      	MOVLW 0x0A
-11CA  6185      	CPFSLT gbl_iTimer1OffCount, 1
-11CC  0012      	RETURN
-11CE  0E0A      	MOVLW 0x0A
-11D0  6F85      	MOVWF gbl_iTimer1OffCount, 1
-11D2  6B82      	CLRF gbl_iFunctionMode, 1
-11D4  ECCCF002  	CALL showVolume_00000
-11D8  EC45F003  	CALL showInput_00000
-11DC  EC58F000  	CALL ledWrite_00000
-11E0  0012      	RETURN
-11E2            ; } onTimer1 function end
+	ORG 0x00001142
+1142            onTimer1_00000
+1142            ; { onTimer1 ; function begin
+1142  0100      	MOVLB 0x00
+1144  2B84      	INCF gbl_iTimer1SecCounts, F, 1
+1146  0E1E      	MOVLW 0x1E
+1148  6184      	CPFSLT gbl_iTimer1SecCounts, 1
+114A  D001      	BRA	label178
+114C  D00F      	BRA	label180
+114E            label178
+114E  537C      	MOVF gbl_iPower, F, 1
+1150  E00C      	BZ	label179
+1152  A481      	BTFSS gbl_portb,2
+1154  D00A      	BRA	label179
+1156  8280      	BSF gbl_porta,1
+1158  9680      	BCF gbl_porta,3
+115A  8A80      	BSF gbl_porta,5
+115C  6B82      	CLRF gbl_iFunctionMode, 1
+115E  ECCCF002  	CALL showVolume_00000
+1162  EC45F003  	CALL showInput_00000
+1166  EC58F000  	CALL ledWrite_00000
+116A            label179
+116A  6B84      	CLRF gbl_iTimer1SecCounts, 1
+116C            label180
+116C  AC83      	BTFSS gbl_portd,6
+116E  D02E      	BRA	label182
+1170  537C      	MOVF gbl_iPower, F, 1
+1172  E02C      	BZ	label182
+1174  537D      	MOVF gbl_iPowerExternal, F, 1
+1176  E02A      	BZ	label182
+1178  5385      	MOVF gbl_iTimer1OffCount, F, 1
+117A  E105      	BNZ	label181
+117C  0E0A      	MOVLW 0x0A
+117E  6F85      	MOVWF gbl_iTimer1OffCount, 1
+1180  EC2FF007  	CALL doPower_00000
+1184  0012      	RETURN
+1186            label181
+1186  0785      	DECF gbl_iTimer1OffCount, F, 1
+1188  0E01      	MOVLW 0x01
+118A  6F99      	MOVWF ledPrint_00000_arg_iLine, 1
+118C  0E20      	MOVLW 0x20
+118E  6F9F      	MOVWF CompTempVar713+D'3', 1
+1190  6FA2      	MOVWF CompTempVar713+D'6', 1
+1192  0E49      	MOVLW 0x49
+1194  6FA0      	MOVWF CompTempVar713+D'4', 1
+1196  0E4F      	MOVLW 0x4F
+1198  6F9C      	MOVWF CompTempVar713, 1
+119A  0E66      	MOVLW 0x66
+119C  6F9D      	MOVWF CompTempVar713+D'1', 1
+119E  6F9E      	MOVWF CompTempVar713+D'2', 1
+11A0  0E6E      	MOVLW 0x6E
+11A2  6FA1      	MOVWF CompTempVar713+D'5', 1
+11A4  6BA3      	CLRF CompTempVar713+D'7', 1
+11A6  0E00      	MOVLW HIGH(CompTempVar713+D'0')
+11A8  6F9B      	MOVWF ledPrint_00000_arg_s+D'1', 1
+11AA  0E9C      	MOVLW LOW(CompTempVar713+D'0')
+11AC  6F9A      	MOVWF ledPrint_00000_arg_s, 1
+11AE  EC81F000  	CALL ledPrint_00000
+11B2  0E01      	MOVLW 0x01
+11B4  6F86      	MOVWF gbl_ledCurrentLine, 1
+11B6  0E07      	MOVLW 0x07
+11B8  6F87      	MOVWF gbl_ledCurrentCol, 1
+11BA  0E30      	MOVLW 0x30
+11BC  2585      	ADDWF gbl_iTimer1OffCount, W, 1
+11BE  6F9B      	MOVWF ledChar_00000_arg_iChar, 1
+11C0  6B9C      	CLRF ledChar_00000_arg_iHasDot, 1
+11C2  ECE0F000  	CALL ledChar_00000
+11C6  EC58F000  	CALL ledWrite_00000
+11CA  0012      	RETURN
+11CC            label182
+11CC  0E0A      	MOVLW 0x0A
+11CE  6185      	CPFSLT gbl_iTimer1OffCount, 1
+11D0  0012      	RETURN
+11D2  0E0A      	MOVLW 0x0A
+11D4  6F85      	MOVWF gbl_iTimer1OffCount, 1
+11D6  6B82      	CLRF gbl_iFunctionMode, 1
+11D8  ECCCF002  	CALL showVolume_00000
+11DC  EC45F003  	CALL showInput_00000
+11E0  EC58F000  	CALL ledWrite_00000
+11E4  0012      	RETURN
+11E6            ; } onTimer1 function end
 
-	ORG 0x000011E2
-11E2            initialise_00000
-11E2            ; { initialise ; function begin
-11E2  6A92      	CLRF gbl_trisa
-11E4  6A80      	CLRF gbl_porta
-11E6  0E07      	MOVLW 0x07
-11E8  6E93      	MOVWF gbl_trisb
-11EA  0E20      	MOVLW 0x20
-11EC  6E81      	MOVWF gbl_portb
-11EE  0EC0      	MOVLW 0xC0
-11F0  6E94      	MOVWF gbl_trisc
-11F2  0E04      	MOVLW 0x04
-11F4  6E82      	MOVWF gbl_portc
-11F6  0E40      	MOVLW 0x40
-11F8  6E95      	MOVWF gbl_trisd
-11FA  0E80      	MOVLW 0x80
-11FC  6E83      	MOVWF gbl_portd
-11FE  6A96      	CLRF gbl_trise
-1200  6A84      	CLRF gbl_porte
-1202  8ED3      	BSF gbl_osccon,7
-1204  8CD3      	BSF gbl_osccon,6
-1206  8AD3      	BSF gbl_osccon,5
-1208  98D3      	BCF gbl_osccon,4
-120A  6AC2      	CLRF gbl_adcon0
-120C  0E0F      	MOVLW 0x0F
-120E  6EC1      	MOVWF gbl_adcon1
-1210  EC98F005  	CALL readData_00000
-1214  EC89F002  	CALL writeRelay_00000
-1218  0E30      	MOVLW 0x30
-121A  6ECD      	MOVWF gbl_t1con
-121C  6B83      	CLRF gbl_iTimer1Count, 1
-121E  0E0C      	MOVLW 0x0C
-1220  6ECF      	MOVWF gbl_tmr1h
-1222  809D      	BSF gbl_pie1,0
-1224  909E      	BCF gbl_pir1,0
-1226  0E29      	MOVLW 0x29
-1228  6ECA      	MOVWF gbl_t2con
-122A  0E5C      	MOVLW 0x5C
-122C  6ECB      	MOVWF gbl_pr2
-122E  829D      	BSF gbl_pie1,1
-1230  92A1      	BCF gbl_pir2,1
-1232  88F2      	BSF gbl_intcon,4
-1234  8CF1      	BSF gbl_intcon2,6
-1236  92F2      	BCF gbl_intcon,1
-1238  86F0      	BSF gbl_intcon3,3
-123A  9AF1      	BCF gbl_intcon2,5
-123C  90F0      	BCF gbl_intcon3,0
-123E  88F0      	BSF gbl_intcon3,4
-1240  98F1      	BCF gbl_intcon2,4
-1242  92F0      	BCF gbl_intcon3,1
-1244  8EF1      	BSF gbl_intcon2,7
-1246  8CF2      	BSF gbl_intcon,6
-1248  8680      	BSF gbl_porta,3
-124A  0E02      	MOVLW 0x02
-124C  6F94      	MOVWF delay_s_00000_arg_del, 1
-124E  EC28F000  	CALL delay_s_00000
-1252  ECC0F003  	CALL ledOn_00000
-1256  ECDCF005  	CALL ledTest_00000
-125A  0E02      	MOVLW 0x02
-125C  6F94      	MOVWF delay_s_00000_arg_del, 1
-125E  EC28F000  	CALL delay_s_00000
-1262  ECE4F003  	CALL ledOff_00000
-1266  8EF2      	BSF gbl_intcon,7
-1268  0012      	RETURN
-126A            ; } initialise function end
+	ORG 0x000011E6
+11E6            initialise_00000
+11E6            ; { initialise ; function begin
+11E6  6A92      	CLRF gbl_trisa
+11E8  6A80      	CLRF gbl_porta
+11EA  0E07      	MOVLW 0x07
+11EC  6E93      	MOVWF gbl_trisb
+11EE  0E20      	MOVLW 0x20
+11F0  6E81      	MOVWF gbl_portb
+11F2  0EC0      	MOVLW 0xC0
+11F4  6E94      	MOVWF gbl_trisc
+11F6  0E04      	MOVLW 0x04
+11F8  6E82      	MOVWF gbl_portc
+11FA  0E40      	MOVLW 0x40
+11FC  6E95      	MOVWF gbl_trisd
+11FE  0E80      	MOVLW 0x80
+1200  6E83      	MOVWF gbl_portd
+1202  6A96      	CLRF gbl_trise
+1204  6A84      	CLRF gbl_porte
+1206  8ED3      	BSF gbl_osccon,7
+1208  8CD3      	BSF gbl_osccon,6
+120A  8AD3      	BSF gbl_osccon,5
+120C  98D3      	BCF gbl_osccon,4
+120E  6AC2      	CLRF gbl_adcon0
+1210  0E0F      	MOVLW 0x0F
+1212  6EC1      	MOVWF gbl_adcon1
+1214  EC98F005  	CALL readData_00000
+1218  EC89F002  	CALL writeRelay_00000
+121C  0E30      	MOVLW 0x30
+121E  6ECD      	MOVWF gbl_t1con
+1220  6B83      	CLRF gbl_iTimer1Count, 1
+1222  0E0C      	MOVLW 0x0C
+1224  6ECF      	MOVWF gbl_tmr1h
+1226  809D      	BSF gbl_pie1,0
+1228  909E      	BCF gbl_pir1,0
+122A  0E29      	MOVLW 0x29
+122C  6ECA      	MOVWF gbl_t2con
+122E  0E5C      	MOVLW 0x5C
+1230  6ECB      	MOVWF gbl_pr2
+1232  829D      	BSF gbl_pie1,1
+1234  92A1      	BCF gbl_pir2,1
+1236  88F2      	BSF gbl_intcon,4
+1238  8CF1      	BSF gbl_intcon2,6
+123A  92F2      	BCF gbl_intcon,1
+123C  86F0      	BSF gbl_intcon3,3
+123E  9AF1      	BCF gbl_intcon2,5
+1240  90F0      	BCF gbl_intcon3,0
+1242  88F0      	BSF gbl_intcon3,4
+1244  98F1      	BCF gbl_intcon2,4
+1246  92F0      	BCF gbl_intcon3,1
+1248  8EF1      	BSF gbl_intcon2,7
+124A  8CF2      	BSF gbl_intcon,6
+124C  8680      	BSF gbl_porta,3
+124E  0E02      	MOVLW 0x02
+1250  6F94      	MOVWF delay_s_00000_arg_del, 1
+1252  EC28F000  	CALL delay_s_00000
+1256  ECC0F003  	CALL ledOn_00000
+125A  ECDCF005  	CALL ledTest_00000
+125E  0E02      	MOVLW 0x02
+1260  6F94      	MOVWF delay_s_00000_arg_del, 1
+1262  EC28F000  	CALL delay_s_00000
+1266  ECE4F003  	CALL ledOff_00000
+126A  8EF2      	BSF gbl_intcon,7
+126C  0012      	RETURN
+126E            ; } initialise function end
 
-	ORG 0x0000126A
-126A            doMute_00000
-126A            ; { doMute ; function begin
-126A  0100      	MOVLB 0x00
-126C  6B93      	CLRF CompTempVar668, 1
-126E  5374      	MOVF gbl_iMute, F, 1
-1270  B4D8      	BTFSC STATUS,Z
-1272  2B93      	INCF CompTempVar668, F, 1
-1274  5193      	MOVF CompTempVar668, W, 1
-1276  6F74      	MOVWF gbl_iMute, 1
-1278  ECDDF001  	CALL writeVolum_0001E
-127C  0012      	RETURN
-127E            ; } doMute function end
+	ORG 0x0000126E
+126E            doMute_00000
+126E            ; { doMute ; function begin
+126E  0100      	MOVLB 0x00
+1270  6B93      	CLRF CompTempVar668, 1
+1272  5374      	MOVF gbl_iMute, F, 1
+1274  B4D8      	BTFSC STATUS,Z
+1276  2B93      	INCF CompTempVar668, F, 1
+1278  5193      	MOVF CompTempVar668, W, 1
+127A  6F74      	MOVWF gbl_iMute, 1
+127C  ECDDF001  	CALL writeVolum_0001E
+1280  0012      	RETURN
+1282            ; } doMute function end
 
-	ORG 0x0000127E
-127E            main
-127E            ; { main ; function begin
-127E  ECF1F008  	CALL initialise_00000
-1282            label183
-1282  0E00      	MOVLW 0x00
-1284  6572      	CPFSGT gbl_cTask, 1
-1286  D030      	BRA	label189
-1288  A972      	BTFSS gbl_cTask,4, 1
-128A  D005      	BRA	label184
-128C  ECA7F003  	CALL showFault_00000
-1290  80CD      	BSF gbl_t1con,0
-1292  9972      	BCF gbl_cTask,4, 1
-1294  D7F6      	BRA	label183
-1296            label184
-1296  A172      	BTFSS gbl_cTask,0, 1
-1298  D004      	BRA	label185
-129A  ECD6F007  	CALL saveData_00000
-129E  9172      	BCF gbl_cTask,0, 1
-12A0  D7F0      	BRA	label183
-12A2            label185
-12A2  AB72      	BTFSS gbl_cTask,5, 1
-12A4  D00A      	BRA	label186
-12A6  EC35F009  	CALL doMute_00000
-12AA  ECCCF002  	CALL showVolume_00000
-12AE  EC58F000  	CALL ledWrite_00000
-12B2  EC92F005  	CALL timer1Rese_0001A
-12B6  9B72      	BCF gbl_cTask,5, 1
-12B8  D7E4      	BRA	label183
-12BA            label186
-12BA  AD72      	BTFSS gbl_cTask,6, 1
-12BC  D008      	BRA	label187
-12BE  0E01      	MOVLW 0x01
-12C0  6F82      	MOVWF gbl_iFunctionMode, 1
-12C2  EC0FF004  	CALL functionDi_00022
-12C6  EC92F005  	CALL timer1Rese_0001A
-12CA  9D72      	BCF gbl_cTask,6, 1
-12CC  D7DA      	BRA	label183
-12CE            label187
-12CE  AF72      	BTFSS gbl_cTask,7, 1
-12D0  D004      	BRA	label188
-12D2  EC9FF008  	CALL onTimer1_00000
-12D6  9F72      	BCF gbl_cTask,7, 1
-12D8  D7D4      	BRA	label183
-12DA            label188
-12DA  A772      	BTFSS gbl_cTask,3, 1
-12DC  D7D2      	BRA	label183
-12DE  EC19F008  	CALL rc5Process_00000
-12E2  9480      	BCF gbl_porta,2
-12E4  9772      	BCF gbl_cTask,3, 1
-12E6  D7CD      	BRA	label183
-12E8            label189
-12E8  BC83      	BTFSC gbl_portd,6
-12EA  D009      	BRA	label190
-12EC  677C      	TSTFSZ gbl_iPower, 1
-12EE  D007      	BRA	label190
-12F0  677D      	TSTFSZ gbl_iPowerExternal, 1
-12F2  D005      	BRA	label190
-12F4  0E01      	MOVLW 0x01
-12F6  6F7D      	MOVWF gbl_iPowerExternal, 1
-12F8  6B7E      	CLRF gbl_iActiveInput, 1
-12FA  EC2FF007  	CALL doPower_00000
-12FE            label190
-12FE  AC83      	BTFSS gbl_portd,6
-1300  D7C0      	BRA	label183
-1302  677C      	TSTFSZ gbl_iPower, 1
-1304  D7BE      	BRA	label183
-1306  6B7D      	CLRF gbl_iPowerExternal, 1
-1308  D7BC      	BRA	label183
-130A            ; } main function end
+	ORG 0x00001282
+1282            main
+1282            ; { main ; function begin
+1282  ECF3F008  	CALL initialise_00000
+1286            label183
+1286  0E00      	MOVLW 0x00
+1288  6572      	CPFSGT gbl_cTask, 1
+128A  D030      	BRA	label189
+128C  A972      	BTFSS gbl_cTask,4, 1
+128E  D005      	BRA	label184
+1290  ECA7F003  	CALL showFault_00000
+1294  80CD      	BSF gbl_t1con,0
+1296  9972      	BCF gbl_cTask,4, 1
+1298  D7F6      	BRA	label183
+129A            label184
+129A  A172      	BTFSS gbl_cTask,0, 1
+129C  D004      	BRA	label185
+129E  ECD8F007  	CALL saveData_00000
+12A2  9172      	BCF gbl_cTask,0, 1
+12A4  D7F0      	BRA	label183
+12A6            label185
+12A6  AB72      	BTFSS gbl_cTask,5, 1
+12A8  D00A      	BRA	label186
+12AA  EC37F009  	CALL doMute_00000
+12AE  ECCCF002  	CALL showVolume_00000
+12B2  EC58F000  	CALL ledWrite_00000
+12B6  EC92F005  	CALL timer1Rese_0001A
+12BA  9B72      	BCF gbl_cTask,5, 1
+12BC  D7E4      	BRA	label183
+12BE            label186
+12BE  AD72      	BTFSS gbl_cTask,6, 1
+12C0  D008      	BRA	label187
+12C2  0E01      	MOVLW 0x01
+12C4  6F82      	MOVWF gbl_iFunctionMode, 1
+12C6  EC0FF004  	CALL functionDi_00022
+12CA  EC92F005  	CALL timer1Rese_0001A
+12CE  9D72      	BCF gbl_cTask,6, 1
+12D0  D7DA      	BRA	label183
+12D2            label187
+12D2  AF72      	BTFSS gbl_cTask,7, 1
+12D4  D004      	BRA	label188
+12D6  ECA1F008  	CALL onTimer1_00000
+12DA  9F72      	BCF gbl_cTask,7, 1
+12DC  D7D4      	BRA	label183
+12DE            label188
+12DE  A772      	BTFSS gbl_cTask,3, 1
+12E0  D7D2      	BRA	label183
+12E2  EC1BF008  	CALL rc5Process_00000
+12E6  9480      	BCF gbl_porta,2
+12E8  9772      	BCF gbl_cTask,3, 1
+12EA  D7CD      	BRA	label183
+12EC            label189
+12EC  BC83      	BTFSC gbl_portd,6
+12EE  D009      	BRA	label190
+12F0  677C      	TSTFSZ gbl_iPower, 1
+12F2  D007      	BRA	label190
+12F4  677D      	TSTFSZ gbl_iPowerExternal, 1
+12F6  D005      	BRA	label190
+12F8  0E01      	MOVLW 0x01
+12FA  6F7D      	MOVWF gbl_iPowerExternal, 1
+12FC  6B7E      	CLRF gbl_iActiveInput, 1
+12FE  EC2FF007  	CALL doPower_00000
+1302            label190
+1302  AC83      	BTFSS gbl_portd,6
+1304  D7C0      	BRA	label183
+1306  677C      	TSTFSZ gbl_iPower, 1
+1308  D7BE      	BRA	label183
+130A  6B7D      	CLRF gbl_iPowerExternal, 1
+130C  D7BC      	BRA	label183
+130E            ; } main function end
 
-	ORG 0x0000130A
-130A            _startup
-130A  0100      	MOVLB 0x00
-130C  6B72      	CLRF gbl_cTask, 1
-130E  6B73      	CLRF gbl_iVolume, 1
-1310  6B74      	CLRF gbl_iMute, 1
-1312  6B75      	CLRF gbl_iMuteHeld, 1
-1314  6B76      	CLRF gbl_iMuteWasPressed, 1
-1316  6B77      	CLRF gbl_iFrontBalance, 1
-1318  6B78      	CLRF gbl_iRearBalance, 1
-131A  6B79      	CLRF gbl_iRearAdjust, 1
-131C  6B7A      	CLRF gbl_iCentreAdjust, 1
-131E  6B7B      	CLRF gbl_iSubAdjust, 1
-1320  6B7C      	CLRF gbl_iPower, 1
-1322  6B7D      	CLRF gbl_iPowerExternal, 1
-1324  6B7E      	CLRF gbl_iActiveInput, 1
-1326  0E01      	MOVLW 0x01
-1328  6F7F      	MOVWF gbl_iTrigger, 1
+	ORG 0x0000130E
+130E            _startup
+130E  0100      	MOVLB 0x00
+1310  6B72      	CLRF gbl_cTask, 1
+1312  6B73      	CLRF gbl_iVolume, 1
+1314  6B74      	CLRF gbl_iMute, 1
+1316  6B75      	CLRF gbl_iMuteHeld, 1
+1318  6B76      	CLRF gbl_iMuteWasPressed, 1
+131A  6B77      	CLRF gbl_iFrontBalance, 1
+131C  6B78      	CLRF gbl_iRearBalance, 1
+131E  6B79      	CLRF gbl_iRearAdjust, 1
+1320  6B7A      	CLRF gbl_iCentreAdjust, 1
+1322  6B7B      	CLRF gbl_iSubAdjust, 1
+1324  6B7C      	CLRF gbl_iPower, 1
+1326  6B7D      	CLRF gbl_iPowerExternal, 1
+1328  6B7E      	CLRF gbl_iActiveInput, 1
 132A  0E01      	MOVLW 0x01
-132C  6F80      	MOVWF gbl_iSurroundMode, 1
+132C  6F7F      	MOVWF gbl_iTrigger, 1
 132E  0E01      	MOVLW 0x01
-1330  6F81      	MOVWF gbl_iExtSurroundMode, 1
-1332  6B82      	CLRF gbl_iFunctionMode, 1
-1334  6B83      	CLRF gbl_iTimer1Count, 1
-1336  6B84      	CLRF gbl_iTimer1SecCounts, 1
-1338  0E0A      	MOVLW 0x0A
-133A  6F85      	MOVWF gbl_iTimer1OffCount, 1
-133C  6A05      	CLRF gbl_displayASCIItoSeg
-133E  6A06      	CLRF gbl_displayASCIItoSeg+D'1'
-1340  0E22      	MOVLW 0x22
-1342  6E07      	MOVWF gbl_displayASCIItoSeg+D'2'
-1344  6A08      	CLRF gbl_displayASCIItoSeg+D'3'
-1346  6A09      	CLRF gbl_displayASCIItoSeg+D'4'
-1348  6A0A      	CLRF gbl_displayASCIItoSeg+D'5'
-134A  6A0B      	CLRF gbl_displayASCIItoSeg+D'6'
-134C  0E20      	MOVLW 0x20
-134E  6E0C      	MOVWF gbl_displayASCIItoSeg+D'7'
-1350  0E4E      	MOVLW 0x4E
-1352  6E0D      	MOVWF gbl_displayASCIItoSeg+D'8'
-1354  0E78      	MOVLW 0x78
-1356  6E0E      	MOVWF gbl_displayASCIItoSeg+D'9'
-1358  6A0F      	CLRF gbl_displayASCIItoSeg+D'10'
-135A  6A10      	CLRF gbl_displayASCIItoSeg+D'11'
-135C  6A11      	CLRF gbl_displayASCIItoSeg+D'12'
-135E  0E01      	MOVLW 0x01
-1360  6E12      	MOVWF gbl_displayASCIItoSeg+D'13'
-1362  6A13      	CLRF gbl_displayASCIItoSeg+D'14'
-1364  6A14      	CLRF gbl_displayASCIItoSeg+D'15'
-1366  0E7E      	MOVLW 0x7E
-1368  6E15      	MOVWF gbl_displayASCIItoSeg+D'16'
-136A  0E30      	MOVLW 0x30
-136C  6E16      	MOVWF gbl_displayASCIItoSeg+D'17'
-136E  0E6D      	MOVLW 0x6D
-1370  6E17      	MOVWF gbl_displayASCIItoSeg+D'18'
-1372  0E79      	MOVLW 0x79
-1374  6E18      	MOVWF gbl_displayASCIItoSeg+D'19'
-1376  0E33      	MOVLW 0x33
-1378  6E19      	MOVWF gbl_displayASCIItoSeg+D'20'
-137A  0E5B      	MOVLW 0x5B
-137C  6E1A      	MOVWF gbl_displayASCIItoSeg+D'21'
-137E  0E5F      	MOVLW 0x5F
-1380  6E1B      	MOVWF gbl_displayASCIItoSeg+D'22'
-1382  0E70      	MOVLW 0x70
-1384  6E1C      	MOVWF gbl_displayASCIItoSeg+D'23'
-1386  0E7F      	MOVLW 0x7F
-1388  6E1D      	MOVWF gbl_displayASCIItoSeg+D'24'
-138A  0E7B      	MOVLW 0x7B
-138C  6E1E      	MOVWF gbl_displayASCIItoSeg+D'25'
-138E  6A1F      	CLRF gbl_displayASCIItoSeg+D'26'
-1390  6A20      	CLRF gbl_displayASCIItoSeg+D'27'
-1392  6A21      	CLRF gbl_displayASCIItoSeg+D'28'
-1394  0E09      	MOVLW 0x09
-1396  6E22      	MOVWF gbl_displayASCIItoSeg+D'29'
-1398  6A23      	CLRF gbl_displayASCIItoSeg+D'30'
-139A  0E65      	MOVLW 0x65
-139C  6E24      	MOVWF gbl_displayASCIItoSeg+D'31'
-139E  6A25      	CLRF gbl_displayASCIItoSeg+D'32'
-13A0  0E77      	MOVLW 0x77
-13A2  6E26      	MOVWF gbl_displayASCIItoSeg+D'33'
-13A4  0E1F      	MOVLW 0x1F
-13A6  6E27      	MOVWF gbl_displayASCIItoSeg+D'34'
-13A8  0E4E      	MOVLW 0x4E
-13AA  6E28      	MOVWF gbl_displayASCIItoSeg+D'35'
-13AC  0E3D      	MOVLW 0x3D
-13AE  6E29      	MOVWF gbl_displayASCIItoSeg+D'36'
-13B0  0E4F      	MOVLW 0x4F
-13B2  6E2A      	MOVWF gbl_displayASCIItoSeg+D'37'
-13B4  0E47      	MOVLW 0x47
-13B6  6E2B      	MOVWF gbl_displayASCIItoSeg+D'38'
-13B8  0E5E      	MOVLW 0x5E
-13BA  6E2C      	MOVWF gbl_displayASCIItoSeg+D'39'
-13BC  0E37      	MOVLW 0x37
-13BE  6E2D      	MOVWF gbl_displayASCIItoSeg+D'40'
-13C0  0E30      	MOVLW 0x30
-13C2  6E2E      	MOVWF gbl_displayASCIItoSeg+D'41'
-13C4  0E3C      	MOVLW 0x3C
-13C6  6E2F      	MOVWF gbl_displayASCIItoSeg+D'42'
-13C8  6A30      	CLRF gbl_displayASCIItoSeg+D'43'
-13CA  0E0E      	MOVLW 0x0E
-13CC  6E31      	MOVWF gbl_displayASCIItoSeg+D'44'
-13CE  6A32      	CLRF gbl_displayASCIItoSeg+D'45'
-13D0  0E15      	MOVLW 0x15
-13D2  6E33      	MOVWF gbl_displayASCIItoSeg+D'46'
-13D4  0E7E      	MOVLW 0x7E
-13D6  6E34      	MOVWF gbl_displayASCIItoSeg+D'47'
-13D8  0E67      	MOVLW 0x67
-13DA  6E35      	MOVWF gbl_displayASCIItoSeg+D'48'
-13DC  6A36      	CLRF gbl_displayASCIItoSeg+D'49'
-13DE  0E05      	MOVLW 0x05
-13E0  6E37      	MOVWF gbl_displayASCIItoSeg+D'50'
-13E2  0E5B      	MOVLW 0x5B
-13E4  6E38      	MOVWF gbl_displayASCIItoSeg+D'51'
-13E6  0E70      	MOVLW 0x70
-13E8  6E39      	MOVWF gbl_displayASCIItoSeg+D'52'
-13EA  0E3E      	MOVLW 0x3E
-13EC  6E3A      	MOVWF gbl_displayASCIItoSeg+D'53'
-13EE  6A3B      	CLRF gbl_displayASCIItoSeg+D'54'
-13F0  6A3C      	CLRF gbl_displayASCIItoSeg+D'55'
-13F2  6A3D      	CLRF gbl_displayASCIItoSeg+D'56'
-13F4  0E3B      	MOVLW 0x3B
-13F6  6E3E      	MOVWF gbl_displayASCIItoSeg+D'57'
-13F8  6A3F      	CLRF gbl_displayASCIItoSeg+D'58'
-13FA  6A40      	CLRF gbl_displayASCIItoSeg+D'59'
-13FC  6A41      	CLRF gbl_displayASCIItoSeg+D'60'
-13FE  6A42      	CLRF gbl_displayASCIItoSeg+D'61'
-1400  6A43      	CLRF gbl_displayASCIItoSeg+D'62'
-1402  6A44      	CLRF gbl_displayASCIItoSeg+D'63'
-1404  6A45      	CLRF gbl_displayASCIItoSeg+D'64'
-1406  0E7D      	MOVLW 0x7D
-1408  6E46      	MOVWF gbl_displayASCIItoSeg+D'65'
-140A  0E1F      	MOVLW 0x1F
-140C  6E47      	MOVWF gbl_displayASCIItoSeg+D'66'
-140E  0E0D      	MOVLW 0x0D
-1410  6E48      	MOVWF gbl_displayASCIItoSeg+D'67'
-1412  0E3D      	MOVLW 0x3D
-1414  6E49      	MOVWF gbl_displayASCIItoSeg+D'68'
-1416  0E6F      	MOVLW 0x6F
-1418  6E4A      	MOVWF gbl_displayASCIItoSeg+D'69'
-141A  0E47      	MOVLW 0x47
-141C  6E4B      	MOVWF gbl_displayASCIItoSeg+D'70'
-141E  0E5E      	MOVLW 0x5E
-1420  6E4C      	MOVWF gbl_displayASCIItoSeg+D'71'
-1422  0E17      	MOVLW 0x17
-1424  6E4D      	MOVWF gbl_displayASCIItoSeg+D'72'
-1426  0E10      	MOVLW 0x10
-1428  6E4E      	MOVWF gbl_displayASCIItoSeg+D'73'
-142A  0E3C      	MOVLW 0x3C
-142C  6E4F      	MOVWF gbl_displayASCIItoSeg+D'74'
-142E  6A50      	CLRF gbl_displayASCIItoSeg+D'75'
-1430  0E0E      	MOVLW 0x0E
-1432  6E51      	MOVWF gbl_displayASCIItoSeg+D'76'
-1434  6A52      	CLRF gbl_displayASCIItoSeg+D'77'
-1436  0E15      	MOVLW 0x15
-1438  6E53      	MOVWF gbl_displayASCIItoSeg+D'78'
-143A  0E1D      	MOVLW 0x1D
-143C  6E54      	MOVWF gbl_displayASCIItoSeg+D'79'
-143E  0E67      	MOVLW 0x67
-1440  6E55      	MOVWF gbl_displayASCIItoSeg+D'80'
-1442  6A56      	CLRF gbl_displayASCIItoSeg+D'81'
-1444  0E05      	MOVLW 0x05
-1446  6E57      	MOVWF gbl_displayASCIItoSeg+D'82'
-1448  0E5B      	MOVLW 0x5B
-144A  6E58      	MOVWF gbl_displayASCIItoSeg+D'83'
-144C  0E0F      	MOVLW 0x0F
-144E  6E59      	MOVWF gbl_displayASCIItoSeg+D'84'
-1450  0E1C      	MOVLW 0x1C
-1452  6E5A      	MOVWF gbl_displayASCIItoSeg+D'85'
-1454  6A5B      	CLRF gbl_displayASCIItoSeg+D'86'
-1456  6A5C      	CLRF gbl_displayASCIItoSeg+D'87'
-1458  6A5D      	CLRF gbl_displayASCIItoSeg+D'88'
-145A  0E3B      	MOVLW 0x3B
-145C  6E5E      	MOVWF gbl_displayASCIItoSeg+D'89'
-145E  6A5F      	CLRF gbl_displayASCIItoSeg+D'90'
-1460  0E01      	MOVLW 0x01
-1462  6F86      	MOVWF gbl_ledCurrentLine, 1
-1464  6B87      	CLRF gbl_ledCurrentCol, 1
-1466  6B88      	CLRF gbl_intfCounter, 1
-1468  6B89      	CLRF gbl_rc5_Held, 1
-146A  6B8D      	CLRF gbl_rc5_currentState, 1
-146C  0E01      	MOVLW 0x01
-146E  6F8E      	MOVWF gbl_rc5_pinState, 1
-1470  6B8F      	CLRF gbl_rc5_flickBit, 1
-1472  6B90      	CLRF gbl_rc5_flickBitOld, 1
-1474  6B91      	CLRF gbl_rc5_address, 1
-1476  6B92      	CLRF gbl_rc5_command, 1
-1478  EF3FF009  	GOTO	main
-	ORG 0x0000147C
-147C            interrupt
-147C            ; { interrupt ; function begin
-147C  CFEAF001  	MOVFF FSR0H,  Int1Context
-1480  CFE9F002  	MOVFF FSR0L,  Int1Context+D'1'
-1484  CFF4F003  	MOVFF PRODH,  Int1Context+D'2'
-1488  CFF3F004  	MOVFF PRODL,  Int1Context+D'3'
-148C  A2F0      	BTFSS gbl_intcon3,1
-148E  D009      	BRA	label193
-1490  A8F0      	BTFSS gbl_intcon3,4
-1492  D007      	BRA	label193
-1494  B481      	BTFSC gbl_portb,2
-1496  D003      	BRA	label192
-1498  9280      	BCF gbl_porta,1
-149A  0100      	MOVLB 0x00
-149C  8972      	BSF gbl_cTask,4, 1
-149E            label192
-149E  92F0      	BCF gbl_intcon3,1
-14A0  D09E      	BRA	label217
-14A2            label193
-14A2  A2F2      	BTFSS gbl_intcon,1
-14A4  D007      	BRA	label194
-14A6  A8F2      	BTFSS gbl_intcon,4
-14A8  D005      	BRA	label194
-14AA  9280      	BCF gbl_porta,1
-14AC  0100      	MOVLB 0x00
-14AE  8172      	BSF gbl_cTask,0, 1
-14B0  92F2      	BCF gbl_intcon,1
-14B2  D095      	BRA	label217
-14B4            label194
-14B4  A0F0      	BTFSS gbl_intcon3,0
-14B6  D015      	BRA	label196
-14B8  A6F0      	BTFSS gbl_intcon3,3
-14BA  D013      	BRA	label196
-14BC  0100      	MOVLB 0x00
-14BE  B188      	BTFSC gbl_intfCounter,0, 1
-14C0  8AF1      	BSF gbl_intcon2,5
-14C2  A188      	BTFSS gbl_intfCounter,0, 1
-14C4  9AF1      	BCF gbl_intcon2,5
-14C6  2B88      	INCF gbl_intfCounter, F, 1
-14C8  2B8C      	INCF gbl_rc5_logicChange, F, 1
-14CA  538D      	MOVF gbl_rc5_currentState, F, 1
-14CC  E109      	BNZ	label195
-14CE  6B8B      	CLRF gbl_rc5_logicInterval, 1
-14D0  6B8C      	CLRF gbl_rc5_logicChange, 1
-14D2  6ACC      	CLRF gbl_tmr2
-14D4  0E15      	MOVLW 0x15
-14D6  6ECB      	MOVWF gbl_pr2
-14D8  929E      	BCF gbl_pir1,1
-14DA  84CA      	BSF gbl_t2con,2
-14DC  0E01      	MOVLW 0x01
-14DE  6F8D      	MOVWF gbl_rc5_currentState, 1
-14E0            label195
-14E0  90F0      	BCF gbl_intcon3,0
-14E2            label196
-14E2  A29E      	BTFSS gbl_pir1,1
-14E4  D069      	BRA	label213
-14E6  0100      	MOVLB 0x00
-14E8  6B8E      	CLRF gbl_rc5_pinState, 1
-14EA  A281      	BTFSS gbl_portb,1
-14EC  D001      	BRA	label197
-14EE  2B8E      	INCF gbl_rc5_pinState, F, 1
-14F0            label197
-14F0  058D      	DECF gbl_rc5_currentState, W, 1
-14F2  E005      	BZ	label198
-14F4  2B8B      	INCF gbl_rc5_logicInterval, F, 1
-14F6  B18B      	BTFSC gbl_rc5_logicInterval,0, 1
-14F8  8480      	BSF gbl_porta,2
-14FA  A18B      	BTFSS gbl_rc5_logicInterval,0, 1
-14FC  9480      	BCF gbl_porta,2
-14FE            label198
-14FE  6BAA      	CLRF interrupt_27_iReset, 1
-1500  058D      	DECF gbl_rc5_currentState, W, 1
-1502  E008      	BZ	label200
-1504  0E02      	MOVLW 0x02
-1506  638D      	CPFSEQ gbl_rc5_currentState, 1
-1508  D001      	BRA	label199
-150A  D00A      	BRA	label201
-150C            label199
-150C  0E03      	MOVLW 0x03
-150E  638D      	CPFSEQ gbl_rc5_currentState, 1
-1510  D04A      	BRA	label210
-1512  D015      	BRA	label203
-1514            label200
-1514  6ACC      	CLRF gbl_tmr2
-1516  0E5C      	MOVLW 0x5C
-1518  6ECB      	MOVWF gbl_pr2
-151A  0E02      	MOVLW 0x02
-151C  6F8D      	MOVWF gbl_rc5_currentState, 1
-151E  D045      	BRA	label211
-1520            label201
-1520  058B      	DECF gbl_rc5_logicInterval, W, 1
-1522  E10A      	BNZ	label202
-1524  058C      	DECF gbl_rc5_logicChange, W, 1
-1526  E108      	BNZ	label202
-1528  6B8B      	CLRF gbl_rc5_logicInterval, 1
-152A  6B8C      	CLRF gbl_rc5_logicChange, 1
-152C  6B8A      	CLRF gbl_rc5_bitCount, 1
-152E  6B70      	CLRF gbl_rc5_inputData, 1
-1530  6B71      	CLRF gbl_rc5_inputData+D'1', 1
-1532  0E03      	MOVLW 0x03
-1534  6F8D      	MOVWF gbl_rc5_currentState, 1
-1536  D039      	BRA	label211
-1538            label202
-1538  0E01      	MOVLW 0x01
-153A  6FAA      	MOVWF interrupt_27_iReset, 1
-153C  D036      	BRA	label211
-153E            label203
-153E  0E02      	MOVLW 0x02
-1540  638B      	CPFSEQ gbl_rc5_logicInterval, 1
-1542  D033      	BRA	label211
-1544  518C      	MOVF gbl_rc5_logicChange, W, 1
-1546  0802      	SUBLW 0x02
-1548  E32B      	BNC	label209
-154A  6B8B      	CLRF gbl_rc5_logicInterval, 1
-154C  6B8C      	CLRF gbl_rc5_logicChange, 1
-154E  0E0C      	MOVLW 0x0C
-1550  618A      	CPFSLT gbl_rc5_bitCount, 1
-1552  D008      	BRA	label204
-1554  2B8A      	INCF gbl_rc5_bitCount, F, 1
-1556  90D8      	BCF STATUS,C
-1558  3770      	RLCF gbl_rc5_inputData, F, 1
-155A  3771      	RLCF gbl_rc5_inputData+D'1', F, 1
-155C  058E      	DECF gbl_rc5_pinState, W, 1
-155E  B4D8      	BTFSC STATUS,Z
-1560  8170      	BSF gbl_rc5_inputData,0, 1
-1562  D023      	BRA	label211
-1564            label204
-1564  0E3F      	MOVLW 0x3F
-1566  1570      	ANDWF gbl_rc5_inputData, W, 1
-1568  6F92      	MOVWF gbl_rc5_command, 1
-156A  0E06      	MOVLW 0x06
-156C  6FAB      	MOVWF CompTempVar711, 1
-156E  53AB      	MOVF CompTempVar711, F, 1
-1570            label205
-1570  E005      	BZ	label206
-1572  90D8      	BCF STATUS,C
-1574  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
-1576  3370      	RRCF gbl_rc5_inputData, F, 1
-1578  07AB      	DECF CompTempVar711, F, 1
-157A  D7FA      	BRA	label205
-157C            label206
-157C  0E1F      	MOVLW 0x1F
-157E  1570      	ANDWF gbl_rc5_inputData, W, 1
-1580  6F91      	MOVWF gbl_rc5_address, 1
-1582  0E05      	MOVLW 0x05
-1584  6FAB      	MOVWF CompTempVar712, 1
-1586  53AB      	MOVF CompTempVar712, F, 1
-1588            label207
-1588  E005      	BZ	label208
-158A  90D8      	BCF STATUS,C
-158C  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
-158E  3370      	RRCF gbl_rc5_inputData, F, 1
-1590  07AB      	DECF CompTempVar712, F, 1
-1592  D7FA      	BRA	label207
-1594            label208
-1594  5170      	MOVF gbl_rc5_inputData, W, 1
-1596  6F8F      	MOVWF gbl_rc5_flickBit, 1
-1598  8772      	BSF gbl_cTask,3, 1
-159A  0E01      	MOVLW 0x01
-159C  6FAA      	MOVWF interrupt_27_iReset, 1
-159E  D005      	BRA	label211
-15A0            label209
-15A0  0E01      	MOVLW 0x01
-15A2  6FAA      	MOVWF interrupt_27_iReset, 1
-15A4  D002      	BRA	label211
-15A6            label210
-15A6  0E01      	MOVLW 0x01
-15A8  6FAA      	MOVWF interrupt_27_iReset, 1
-15AA            label211
-15AA  53AA      	MOVF interrupt_27_iReset, F, 1
-15AC  E004      	BZ	label212
-15AE  6B8D      	CLRF gbl_rc5_currentState, 1
-15B0  94CA      	BCF gbl_t2con,2
-15B2  9AF1      	BCF gbl_intcon2,5
-15B4  9480      	BCF gbl_porta,2
-15B6            label212
-15B6  929E      	BCF gbl_pir1,1
-15B8            label213
-15B8  A09E      	BTFSS gbl_pir1,0
-15BA  D011      	BRA	label217
-15BC  A09D      	BTFSS gbl_pie1,0
-15BE  D00F      	BRA	label217
-15C0  0E09      	MOVLW 0x09
-15C2  0100      	MOVLB 0x00
-15C4  6175      	CPFSLT gbl_iMuteHeld, 1
-15C6  D003      	BRA	label214
-15C8  5376      	MOVF gbl_iMuteWasPressed, F, 1
-15CA  A4D8      	BTFSS STATUS,Z
-15CC  8B72      	BSF gbl_cTask,5, 1
-15CE            label214
-15CE  2B83      	INCF gbl_iTimer1Count, F, 1
-15D0  0E05      	MOVLW 0x05
-15D2  6183      	CPFSLT gbl_iTimer1Count, 1
-15D4  D001      	BRA	label215
-15D6  D002      	BRA	label216
-15D8            label215
-15D8  6B83      	CLRF gbl_iTimer1Count, 1
-15DA  8F72      	BSF gbl_cTask,7, 1
-15DC            label216
-15DC  909E      	BCF gbl_pir1,0
-15DE            label217
-15DE  C004FFF3  	MOVFF Int1Context+D'3',  PRODL
-15E2  C003FFF4  	MOVFF Int1Context+D'2',  PRODH
-15E6  C002FFE9  	MOVFF Int1Context+D'1',  FSR0L
-15EA  C001FFEA  	MOVFF Int1Context,  FSR0H
-15EE  0011      	RETFIE 1
-15F0            ; } interrupt function end
+1330  6F80      	MOVWF gbl_iSurroundMode, 1
+1332  0E01      	MOVLW 0x01
+1334  6F81      	MOVWF gbl_iExtSurroundMode, 1
+1336  6B82      	CLRF gbl_iFunctionMode, 1
+1338  6B83      	CLRF gbl_iTimer1Count, 1
+133A  6B84      	CLRF gbl_iTimer1SecCounts, 1
+133C  0E0A      	MOVLW 0x0A
+133E  6F85      	MOVWF gbl_iTimer1OffCount, 1
+1340  6A05      	CLRF gbl_displayASCIItoSeg
+1342  6A06      	CLRF gbl_displayASCIItoSeg+D'1'
+1344  0E22      	MOVLW 0x22
+1346  6E07      	MOVWF gbl_displayASCIItoSeg+D'2'
+1348  6A08      	CLRF gbl_displayASCIItoSeg+D'3'
+134A  6A09      	CLRF gbl_displayASCIItoSeg+D'4'
+134C  6A0A      	CLRF gbl_displayASCIItoSeg+D'5'
+134E  6A0B      	CLRF gbl_displayASCIItoSeg+D'6'
+1350  0E20      	MOVLW 0x20
+1352  6E0C      	MOVWF gbl_displayASCIItoSeg+D'7'
+1354  0E4E      	MOVLW 0x4E
+1356  6E0D      	MOVWF gbl_displayASCIItoSeg+D'8'
+1358  0E78      	MOVLW 0x78
+135A  6E0E      	MOVWF gbl_displayASCIItoSeg+D'9'
+135C  6A0F      	CLRF gbl_displayASCIItoSeg+D'10'
+135E  6A10      	CLRF gbl_displayASCIItoSeg+D'11'
+1360  6A11      	CLRF gbl_displayASCIItoSeg+D'12'
+1362  0E01      	MOVLW 0x01
+1364  6E12      	MOVWF gbl_displayASCIItoSeg+D'13'
+1366  6A13      	CLRF gbl_displayASCIItoSeg+D'14'
+1368  6A14      	CLRF gbl_displayASCIItoSeg+D'15'
+136A  0E7E      	MOVLW 0x7E
+136C  6E15      	MOVWF gbl_displayASCIItoSeg+D'16'
+136E  0E30      	MOVLW 0x30
+1370  6E16      	MOVWF gbl_displayASCIItoSeg+D'17'
+1372  0E6D      	MOVLW 0x6D
+1374  6E17      	MOVWF gbl_displayASCIItoSeg+D'18'
+1376  0E79      	MOVLW 0x79
+1378  6E18      	MOVWF gbl_displayASCIItoSeg+D'19'
+137A  0E33      	MOVLW 0x33
+137C  6E19      	MOVWF gbl_displayASCIItoSeg+D'20'
+137E  0E5B      	MOVLW 0x5B
+1380  6E1A      	MOVWF gbl_displayASCIItoSeg+D'21'
+1382  0E5F      	MOVLW 0x5F
+1384  6E1B      	MOVWF gbl_displayASCIItoSeg+D'22'
+1386  0E70      	MOVLW 0x70
+1388  6E1C      	MOVWF gbl_displayASCIItoSeg+D'23'
+138A  0E7F      	MOVLW 0x7F
+138C  6E1D      	MOVWF gbl_displayASCIItoSeg+D'24'
+138E  0E7B      	MOVLW 0x7B
+1390  6E1E      	MOVWF gbl_displayASCIItoSeg+D'25'
+1392  6A1F      	CLRF gbl_displayASCIItoSeg+D'26'
+1394  6A20      	CLRF gbl_displayASCIItoSeg+D'27'
+1396  6A21      	CLRF gbl_displayASCIItoSeg+D'28'
+1398  0E09      	MOVLW 0x09
+139A  6E22      	MOVWF gbl_displayASCIItoSeg+D'29'
+139C  6A23      	CLRF gbl_displayASCIItoSeg+D'30'
+139E  0E65      	MOVLW 0x65
+13A0  6E24      	MOVWF gbl_displayASCIItoSeg+D'31'
+13A2  6A25      	CLRF gbl_displayASCIItoSeg+D'32'
+13A4  0E77      	MOVLW 0x77
+13A6  6E26      	MOVWF gbl_displayASCIItoSeg+D'33'
+13A8  0E1F      	MOVLW 0x1F
+13AA  6E27      	MOVWF gbl_displayASCIItoSeg+D'34'
+13AC  0E4E      	MOVLW 0x4E
+13AE  6E28      	MOVWF gbl_displayASCIItoSeg+D'35'
+13B0  0E3D      	MOVLW 0x3D
+13B2  6E29      	MOVWF gbl_displayASCIItoSeg+D'36'
+13B4  0E4F      	MOVLW 0x4F
+13B6  6E2A      	MOVWF gbl_displayASCIItoSeg+D'37'
+13B8  0E47      	MOVLW 0x47
+13BA  6E2B      	MOVWF gbl_displayASCIItoSeg+D'38'
+13BC  0E5E      	MOVLW 0x5E
+13BE  6E2C      	MOVWF gbl_displayASCIItoSeg+D'39'
+13C0  0E37      	MOVLW 0x37
+13C2  6E2D      	MOVWF gbl_displayASCIItoSeg+D'40'
+13C4  0E30      	MOVLW 0x30
+13C6  6E2E      	MOVWF gbl_displayASCIItoSeg+D'41'
+13C8  0E3C      	MOVLW 0x3C
+13CA  6E2F      	MOVWF gbl_displayASCIItoSeg+D'42'
+13CC  6A30      	CLRF gbl_displayASCIItoSeg+D'43'
+13CE  0E0E      	MOVLW 0x0E
+13D0  6E31      	MOVWF gbl_displayASCIItoSeg+D'44'
+13D2  6A32      	CLRF gbl_displayASCIItoSeg+D'45'
+13D4  0E15      	MOVLW 0x15
+13D6  6E33      	MOVWF gbl_displayASCIItoSeg+D'46'
+13D8  0E7E      	MOVLW 0x7E
+13DA  6E34      	MOVWF gbl_displayASCIItoSeg+D'47'
+13DC  0E67      	MOVLW 0x67
+13DE  6E35      	MOVWF gbl_displayASCIItoSeg+D'48'
+13E0  6A36      	CLRF gbl_displayASCIItoSeg+D'49'
+13E2  0E05      	MOVLW 0x05
+13E4  6E37      	MOVWF gbl_displayASCIItoSeg+D'50'
+13E6  0E5B      	MOVLW 0x5B
+13E8  6E38      	MOVWF gbl_displayASCIItoSeg+D'51'
+13EA  0E70      	MOVLW 0x70
+13EC  6E39      	MOVWF gbl_displayASCIItoSeg+D'52'
+13EE  0E3E      	MOVLW 0x3E
+13F0  6E3A      	MOVWF gbl_displayASCIItoSeg+D'53'
+13F2  6A3B      	CLRF gbl_displayASCIItoSeg+D'54'
+13F4  6A3C      	CLRF gbl_displayASCIItoSeg+D'55'
+13F6  6A3D      	CLRF gbl_displayASCIItoSeg+D'56'
+13F8  0E3B      	MOVLW 0x3B
+13FA  6E3E      	MOVWF gbl_displayASCIItoSeg+D'57'
+13FC  6A3F      	CLRF gbl_displayASCIItoSeg+D'58'
+13FE  6A40      	CLRF gbl_displayASCIItoSeg+D'59'
+1400  6A41      	CLRF gbl_displayASCIItoSeg+D'60'
+1402  6A42      	CLRF gbl_displayASCIItoSeg+D'61'
+1404  6A43      	CLRF gbl_displayASCIItoSeg+D'62'
+1406  6A44      	CLRF gbl_displayASCIItoSeg+D'63'
+1408  6A45      	CLRF gbl_displayASCIItoSeg+D'64'
+140A  0E7D      	MOVLW 0x7D
+140C  6E46      	MOVWF gbl_displayASCIItoSeg+D'65'
+140E  0E1F      	MOVLW 0x1F
+1410  6E47      	MOVWF gbl_displayASCIItoSeg+D'66'
+1412  0E0D      	MOVLW 0x0D
+1414  6E48      	MOVWF gbl_displayASCIItoSeg+D'67'
+1416  0E3D      	MOVLW 0x3D
+1418  6E49      	MOVWF gbl_displayASCIItoSeg+D'68'
+141A  0E6F      	MOVLW 0x6F
+141C  6E4A      	MOVWF gbl_displayASCIItoSeg+D'69'
+141E  0E47      	MOVLW 0x47
+1420  6E4B      	MOVWF gbl_displayASCIItoSeg+D'70'
+1422  0E5E      	MOVLW 0x5E
+1424  6E4C      	MOVWF gbl_displayASCIItoSeg+D'71'
+1426  0E17      	MOVLW 0x17
+1428  6E4D      	MOVWF gbl_displayASCIItoSeg+D'72'
+142A  0E10      	MOVLW 0x10
+142C  6E4E      	MOVWF gbl_displayASCIItoSeg+D'73'
+142E  0E3C      	MOVLW 0x3C
+1430  6E4F      	MOVWF gbl_displayASCIItoSeg+D'74'
+1432  6A50      	CLRF gbl_displayASCIItoSeg+D'75'
+1434  0E0E      	MOVLW 0x0E
+1436  6E51      	MOVWF gbl_displayASCIItoSeg+D'76'
+1438  6A52      	CLRF gbl_displayASCIItoSeg+D'77'
+143A  0E15      	MOVLW 0x15
+143C  6E53      	MOVWF gbl_displayASCIItoSeg+D'78'
+143E  0E1D      	MOVLW 0x1D
+1440  6E54      	MOVWF gbl_displayASCIItoSeg+D'79'
+1442  0E67      	MOVLW 0x67
+1444  6E55      	MOVWF gbl_displayASCIItoSeg+D'80'
+1446  6A56      	CLRF gbl_displayASCIItoSeg+D'81'
+1448  0E05      	MOVLW 0x05
+144A  6E57      	MOVWF gbl_displayASCIItoSeg+D'82'
+144C  0E5B      	MOVLW 0x5B
+144E  6E58      	MOVWF gbl_displayASCIItoSeg+D'83'
+1450  0E0F      	MOVLW 0x0F
+1452  6E59      	MOVWF gbl_displayASCIItoSeg+D'84'
+1454  0E1C      	MOVLW 0x1C
+1456  6E5A      	MOVWF gbl_displayASCIItoSeg+D'85'
+1458  6A5B      	CLRF gbl_displayASCIItoSeg+D'86'
+145A  6A5C      	CLRF gbl_displayASCIItoSeg+D'87'
+145C  6A5D      	CLRF gbl_displayASCIItoSeg+D'88'
+145E  0E3B      	MOVLW 0x3B
+1460  6E5E      	MOVWF gbl_displayASCIItoSeg+D'89'
+1462  6A5F      	CLRF gbl_displayASCIItoSeg+D'90'
+1464  0E01      	MOVLW 0x01
+1466  6F86      	MOVWF gbl_ledCurrentLine, 1
+1468  6B87      	CLRF gbl_ledCurrentCol, 1
+146A  6B88      	CLRF gbl_intfCounter, 1
+146C  6B89      	CLRF gbl_rc5_Held, 1
+146E  6B8D      	CLRF gbl_rc5_currentState, 1
+1470  0E01      	MOVLW 0x01
+1472  6F8E      	MOVWF gbl_rc5_pinState, 1
+1474  6B8F      	CLRF gbl_rc5_flickBit, 1
+1476  6B90      	CLRF gbl_rc5_flickBitOld, 1
+1478  6B91      	CLRF gbl_rc5_address, 1
+147A  6B92      	CLRF gbl_rc5_command, 1
+147C  EF41F009  	GOTO	main
+	ORG 0x00001480
+1480            interrupt
+1480            ; { interrupt ; function begin
+1480  CFEAF001  	MOVFF FSR0H,  Int1Context
+1484  CFE9F002  	MOVFF FSR0L,  Int1Context+D'1'
+1488  CFF4F003  	MOVFF PRODH,  Int1Context+D'2'
+148C  CFF3F004  	MOVFF PRODL,  Int1Context+D'3'
+1490  A2F0      	BTFSS gbl_intcon3,1
+1492  D009      	BRA	label193
+1494  A8F0      	BTFSS gbl_intcon3,4
+1496  D007      	BRA	label193
+1498  B481      	BTFSC gbl_portb,2
+149A  D003      	BRA	label192
+149C  9280      	BCF gbl_porta,1
+149E  0100      	MOVLB 0x00
+14A0  8972      	BSF gbl_cTask,4, 1
+14A2            label192
+14A2  92F0      	BCF gbl_intcon3,1
+14A4  D09E      	BRA	label217
+14A6            label193
+14A6  A2F2      	BTFSS gbl_intcon,1
+14A8  D007      	BRA	label194
+14AA  A8F2      	BTFSS gbl_intcon,4
+14AC  D005      	BRA	label194
+14AE  9280      	BCF gbl_porta,1
+14B0  0100      	MOVLB 0x00
+14B2  8172      	BSF gbl_cTask,0, 1
+14B4  92F2      	BCF gbl_intcon,1
+14B6  D095      	BRA	label217
+14B8            label194
+14B8  A0F0      	BTFSS gbl_intcon3,0
+14BA  D015      	BRA	label196
+14BC  A6F0      	BTFSS gbl_intcon3,3
+14BE  D013      	BRA	label196
+14C0  0100      	MOVLB 0x00
+14C2  B188      	BTFSC gbl_intfCounter,0, 1
+14C4  8AF1      	BSF gbl_intcon2,5
+14C6  A188      	BTFSS gbl_intfCounter,0, 1
+14C8  9AF1      	BCF gbl_intcon2,5
+14CA  2B88      	INCF gbl_intfCounter, F, 1
+14CC  2B8C      	INCF gbl_rc5_logicChange, F, 1
+14CE  538D      	MOVF gbl_rc5_currentState, F, 1
+14D0  E109      	BNZ	label195
+14D2  6B8B      	CLRF gbl_rc5_logicInterval, 1
+14D4  6B8C      	CLRF gbl_rc5_logicChange, 1
+14D6  6ACC      	CLRF gbl_tmr2
+14D8  0E15      	MOVLW 0x15
+14DA  6ECB      	MOVWF gbl_pr2
+14DC  929E      	BCF gbl_pir1,1
+14DE  84CA      	BSF gbl_t2con,2
+14E0  0E01      	MOVLW 0x01
+14E2  6F8D      	MOVWF gbl_rc5_currentState, 1
+14E4            label195
+14E4  90F0      	BCF gbl_intcon3,0
+14E6            label196
+14E6  A29E      	BTFSS gbl_pir1,1
+14E8  D069      	BRA	label213
+14EA  0100      	MOVLB 0x00
+14EC  6B8E      	CLRF gbl_rc5_pinState, 1
+14EE  A281      	BTFSS gbl_portb,1
+14F0  D001      	BRA	label197
+14F2  2B8E      	INCF gbl_rc5_pinState, F, 1
+14F4            label197
+14F4  058D      	DECF gbl_rc5_currentState, W, 1
+14F6  E005      	BZ	label198
+14F8  2B8B      	INCF gbl_rc5_logicInterval, F, 1
+14FA  B18B      	BTFSC gbl_rc5_logicInterval,0, 1
+14FC  8480      	BSF gbl_porta,2
+14FE  A18B      	BTFSS gbl_rc5_logicInterval,0, 1
+1500  9480      	BCF gbl_porta,2
+1502            label198
+1502  6BAA      	CLRF interrupt_27_iReset, 1
+1504  058D      	DECF gbl_rc5_currentState, W, 1
+1506  E008      	BZ	label200
+1508  0E02      	MOVLW 0x02
+150A  638D      	CPFSEQ gbl_rc5_currentState, 1
+150C  D001      	BRA	label199
+150E  D00A      	BRA	label201
+1510            label199
+1510  0E03      	MOVLW 0x03
+1512  638D      	CPFSEQ gbl_rc5_currentState, 1
+1514  D04A      	BRA	label210
+1516  D015      	BRA	label203
+1518            label200
+1518  6ACC      	CLRF gbl_tmr2
+151A  0E5C      	MOVLW 0x5C
+151C  6ECB      	MOVWF gbl_pr2
+151E  0E02      	MOVLW 0x02
+1520  6F8D      	MOVWF gbl_rc5_currentState, 1
+1522  D045      	BRA	label211
+1524            label201
+1524  058B      	DECF gbl_rc5_logicInterval, W, 1
+1526  E10A      	BNZ	label202
+1528  058C      	DECF gbl_rc5_logicChange, W, 1
+152A  E108      	BNZ	label202
+152C  6B8B      	CLRF gbl_rc5_logicInterval, 1
+152E  6B8C      	CLRF gbl_rc5_logicChange, 1
+1530  6B8A      	CLRF gbl_rc5_bitCount, 1
+1532  6B70      	CLRF gbl_rc5_inputData, 1
+1534  6B71      	CLRF gbl_rc5_inputData+D'1', 1
+1536  0E03      	MOVLW 0x03
+1538  6F8D      	MOVWF gbl_rc5_currentState, 1
+153A  D039      	BRA	label211
+153C            label202
+153C  0E01      	MOVLW 0x01
+153E  6FAA      	MOVWF interrupt_27_iReset, 1
+1540  D036      	BRA	label211
+1542            label203
+1542  0E02      	MOVLW 0x02
+1544  638B      	CPFSEQ gbl_rc5_logicInterval, 1
+1546  D033      	BRA	label211
+1548  518C      	MOVF gbl_rc5_logicChange, W, 1
+154A  0802      	SUBLW 0x02
+154C  E32B      	BNC	label209
+154E  6B8B      	CLRF gbl_rc5_logicInterval, 1
+1550  6B8C      	CLRF gbl_rc5_logicChange, 1
+1552  0E0C      	MOVLW 0x0C
+1554  618A      	CPFSLT gbl_rc5_bitCount, 1
+1556  D008      	BRA	label204
+1558  2B8A      	INCF gbl_rc5_bitCount, F, 1
+155A  90D8      	BCF STATUS,C
+155C  3770      	RLCF gbl_rc5_inputData, F, 1
+155E  3771      	RLCF gbl_rc5_inputData+D'1', F, 1
+1560  058E      	DECF gbl_rc5_pinState, W, 1
+1562  B4D8      	BTFSC STATUS,Z
+1564  8170      	BSF gbl_rc5_inputData,0, 1
+1566  D023      	BRA	label211
+1568            label204
+1568  0E3F      	MOVLW 0x3F
+156A  1570      	ANDWF gbl_rc5_inputData, W, 1
+156C  6F92      	MOVWF gbl_rc5_command, 1
+156E  0E06      	MOVLW 0x06
+1570  6FAB      	MOVWF CompTempVar711, 1
+1572  53AB      	MOVF CompTempVar711, F, 1
+1574            label205
+1574  E005      	BZ	label206
+1576  90D8      	BCF STATUS,C
+1578  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
+157A  3370      	RRCF gbl_rc5_inputData, F, 1
+157C  07AB      	DECF CompTempVar711, F, 1
+157E  D7FA      	BRA	label205
+1580            label206
+1580  0E1F      	MOVLW 0x1F
+1582  1570      	ANDWF gbl_rc5_inputData, W, 1
+1584  6F91      	MOVWF gbl_rc5_address, 1
+1586  0E05      	MOVLW 0x05
+1588  6FAB      	MOVWF CompTempVar712, 1
+158A  53AB      	MOVF CompTempVar712, F, 1
+158C            label207
+158C  E005      	BZ	label208
+158E  90D8      	BCF STATUS,C
+1590  3371      	RRCF gbl_rc5_inputData+D'1', F, 1
+1592  3370      	RRCF gbl_rc5_inputData, F, 1
+1594  07AB      	DECF CompTempVar712, F, 1
+1596  D7FA      	BRA	label207
+1598            label208
+1598  5170      	MOVF gbl_rc5_inputData, W, 1
+159A  6F8F      	MOVWF gbl_rc5_flickBit, 1
+159C  8772      	BSF gbl_cTask,3, 1
+159E  0E01      	MOVLW 0x01
+15A0  6FAA      	MOVWF interrupt_27_iReset, 1
+15A2  D005      	BRA	label211
+15A4            label209
+15A4  0E01      	MOVLW 0x01
+15A6  6FAA      	MOVWF interrupt_27_iReset, 1
+15A8  D002      	BRA	label211
+15AA            label210
+15AA  0E01      	MOVLW 0x01
+15AC  6FAA      	MOVWF interrupt_27_iReset, 1
+15AE            label211
+15AE  53AA      	MOVF interrupt_27_iReset, F, 1
+15B0  E004      	BZ	label212
+15B2  6B8D      	CLRF gbl_rc5_currentState, 1
+15B4  94CA      	BCF gbl_t2con,2
+15B6  9AF1      	BCF gbl_intcon2,5
+15B8  9480      	BCF gbl_porta,2
+15BA            label212
+15BA  929E      	BCF gbl_pir1,1
+15BC            label213
+15BC  A09E      	BTFSS gbl_pir1,0
+15BE  D011      	BRA	label217
+15C0  A09D      	BTFSS gbl_pie1,0
+15C2  D00F      	BRA	label217
+15C4  0E09      	MOVLW 0x09
+15C6  0100      	MOVLB 0x00
+15C8  6175      	CPFSLT gbl_iMuteHeld, 1
+15CA  D003      	BRA	label214
+15CC  5376      	MOVF gbl_iMuteWasPressed, F, 1
+15CE  A4D8      	BTFSS STATUS,Z
+15D0  8B72      	BSF gbl_cTask,5, 1
+15D2            label214
+15D2  2B83      	INCF gbl_iTimer1Count, F, 1
+15D4  0E05      	MOVLW 0x05
+15D6  6183      	CPFSLT gbl_iTimer1Count, 1
+15D8  D001      	BRA	label215
+15DA  D002      	BRA	label216
+15DC            label215
+15DC  6B83      	CLRF gbl_iTimer1Count, 1
+15DE  8F72      	BSF gbl_cTask,7, 1
+15E0            label216
+15E0  909E      	BCF gbl_pir1,0
+15E2            label217
+15E2  C004FFF3  	MOVFF Int1Context+D'3',  PRODL
+15E6  C003FFF4  	MOVFF Int1Context+D'2',  PRODH
+15EA  C002FFE9  	MOVFF Int1Context+D'1',  FSR0L
+15EE  C001FFEA  	MOVFF Int1Context,  FSR0H
+15F2  0011      	RETFIE 1
+15F4            ; } interrupt function end
 
 	ORG 0x00300000
 300000  8D08      	DW 0x8D08

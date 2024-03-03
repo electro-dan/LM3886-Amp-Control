@@ -1,5 +1,5 @@
 /*****************************************************************************************************************
- Copyright Daniel Clarke https://electro-dan.co.uk, 14th July 2022
+ Copyright Daniel Clarke https://electro-dan.co.uk, 3rd March 2024
  Free to use and adapt but NO guarantees or support
  For PIC18F4455
 *****************************************************************************************************************/
@@ -613,6 +613,8 @@ void doPower() {
             GREEN = 1;
             DELAY_SHORT;
         }
+        
+        writeVolumes(); // Write volume a second time to avoid interference
         
         showInput();
         showVolume();
